@@ -327,23 +327,77 @@ app.post('/api/admin/delete-code', async (c) => {
 // 8. 관리자 - 통계 조회 API
 app.get('/api/admin/stats', async (c) => {
   try {
-    const totalParticipants = await c.env.DB.prepare(`
-      SELECT COUNT(*) as count FROM participants
-    `).first()
+    const statsCode = c.req.query('statsCode') || '';
+    const teamStatsCode = c.req.query('teamStatsCode') || '';
+    
+    // 현황 통계 (참가자 수)
+    let totalParticipants, maleCount, femaleCount;
+    
+    if (statsCode) {
+      // 특정 코드의 참가자만
+      totalParticipants = await c.env.DB.prepare(`
+        SELECT COUNT(*) as count FROM participants WHERE access_code = ?
+      `).bind(statsCode).first()
 
-    const maleCount = await c.env.DB.prepare(`
-      SELECT COUNT(*) as count FROM participants WHERE gender = 'male'
-    `).first()
+      maleCount = await c.env.DB.prepare(`
+        SELECT COUNT(*) as count FROM participants WHERE access_code = ? AND gender = 'male'
+      `).bind(statsCode).first()
 
-    const femaleCount = await c.env.DB.prepare(`
-      SELECT COUNT(*) as count FROM participants WHERE gender = 'female'
-    `).first()
+      femaleCount = await c.env.DB.prepare(`
+        SELECT COUNT(*) as count FROM participants WHERE access_code = ? AND gender = 'female'
+      `).bind(statsCode).first()
+    } else {
+      // 전체 코드의 참가자
+      totalParticipants = await c.env.DB.prepare(`
+        SELECT COUNT(*) as count FROM participants
+      `).first()
 
-    const teams = await c.env.DB.prepare(`
-      SELECT team_number, male_count, female_count, total_count 
-      FROM teams 
-      ORDER BY team_number
-    `).all()
+      maleCount = await c.env.DB.prepare(`
+        SELECT COUNT(*) as count FROM participants WHERE gender = 'male'
+      `).first()
+
+      femaleCount = await c.env.DB.prepare(`
+        SELECT COUNT(*) as count FROM participants WHERE gender = 'female'
+      `).first()
+    }
+
+    // 팀별 통계
+    let teams;
+    
+    if (teamStatsCode) {
+      // 특정 코드의 팀별 참가자 수 계산
+      const { results: teamData } = await c.env.DB.prepare(`
+        SELECT 
+          team_number,
+          COUNT(*) as total_count,
+          SUM(CASE WHEN gender = 'male' THEN 1 ELSE 0 END) as male_count,
+          SUM(CASE WHEN gender = 'female' THEN 1 ELSE 0 END) as female_count
+        FROM participants 
+        WHERE access_code = ? AND team_number IS NOT NULL
+        GROUP BY team_number
+        ORDER BY team_number
+      `).bind(teamStatsCode).all()
+      
+      // 6개 팀 모두 표시 (참가자가 없으면 0으로)
+      teams = [];
+      for (let i = 1; i <= 6; i++) {
+        const teamInfo = teamData.find(t => t.team_number === i);
+        teams.push({
+          team_number: i,
+          total_count: teamInfo?.total_count || 0,
+          male_count: teamInfo?.male_count || 0,
+          female_count: teamInfo?.female_count || 0
+        });
+      }
+    } else {
+      // 전체 코드의 팀별 통계 (기존 teams 테이블 사용)
+      const teamsResult = await c.env.DB.prepare(`
+        SELECT team_number, male_count, female_count, total_count 
+        FROM teams 
+        ORDER BY team_number
+      `).all()
+      teams = teamsResult.results;
+    }
 
     return c.json({
       success: true,
@@ -351,7 +405,7 @@ app.get('/api/admin/stats', async (c) => {
         total: totalParticipants?.count || 0,
         male: maleCount?.count || 0,
         female: femaleCount?.count || 0,
-        teams: teams.results
+        teams: teams
       }
     })
   } catch (error) {
@@ -1074,6 +1128,16 @@ app.get('/admin', (c) => {
                     <h2 class="text-2xl font-bold text-gray-800 mb-4">
                         <i class="fas fa-chart-bar mr-2"></i>현황 통계
                     </h2>
+                    <div class="mb-4">
+                        <label class="block text-sm font-semibold text-gray-700 mb-2">
+                            <i class="fas fa-filter mr-2"></i>코드 선택
+                        </label>
+                        <select id="statsCodeSelect" 
+                                onchange="loadStats()" 
+                                class="w-full px-4 py-3 border-2 border-gray-300 rounded-lg focus:border-indigo-500 focus:outline-none">
+                            <option value="">전체 코드</option>
+                        </select>
+                    </div>
                     <div id="stats" class="grid grid-cols-3 gap-4">
                         <div class="text-center p-4 bg-indigo-50 rounded-lg">
                             <div class="text-3xl font-bold text-indigo-600" id="totalCount">0</div>
@@ -1170,6 +1234,16 @@ app.get('/admin', (c) => {
                     <h2 class="text-2xl font-bold text-gray-800 mb-4">
                         <i class="fas fa-users mr-2"></i>전체 팀별 현황
                     </h2>
+                    <div class="mb-4">
+                        <label class="block text-sm font-semibold text-gray-700 mb-2">
+                            <i class="fas fa-filter mr-2"></i>코드 선택
+                        </label>
+                        <select id="teamStatsCodeSelect" 
+                                onchange="loadStats()" 
+                                class="w-full px-4 py-3 border-2 border-gray-300 rounded-lg focus:border-indigo-500 focus:outline-none">
+                            <option value="">전체 코드</option>
+                        </select>
+                    </div>
                     <div id="teamStats" class="space-y-3"></div>
                 </div>
 
@@ -1237,7 +1311,15 @@ app.get('/admin', (c) => {
 
             async function loadStats() {
                 try {
-                    const response = await axios.get('/api/admin/stats');
+                    const statsCode = document.getElementById('statsCodeSelect')?.value || '';
+                    const teamStatsCode = document.getElementById('teamStatsCodeSelect')?.value || '';
+                    
+                    const response = await axios.get('/api/admin/stats', {
+                        params: { 
+                            statsCode: statsCode,
+                            teamStatsCode: teamStatsCode
+                        }
+                    });
                     const stats = response.data.stats;
                     
                     document.getElementById('totalCount').textContent = stats.total;
@@ -1323,6 +1405,24 @@ app.get('/admin', (c) => {
                     const selectElement = document.getElementById('assignCodeSelect');
                     selectElement.innerHTML = '<option value="">코드를 선택하세요</option>' +
                         codes.map(code => \`<option value="\${code.code}">\${code.code} (\${code.valid_date}) - \${code.participant_count}명</option>\`).join('');
+                    
+                    // 통계 코드 select 옵션 업데이트
+                    const statsCodeSelect = document.getElementById('statsCodeSelect');
+                    if (statsCodeSelect) {
+                        const currentValue = statsCodeSelect.value;
+                        statsCodeSelect.innerHTML = '<option value="">전체 코드</option>' +
+                            codes.map(code => \`<option value="\${code.code}">\${code.code} (\${code.valid_date}) - \${code.participant_count}명</option>\`).join('');
+                        statsCodeSelect.value = currentValue;
+                    }
+                    
+                    // 팀별 통계 코드 select 옵션 업데이트
+                    const teamStatsCodeSelect = document.getElementById('teamStatsCodeSelect');
+                    if (teamStatsCodeSelect) {
+                        const currentValue = teamStatsCodeSelect.value;
+                        teamStatsCodeSelect.innerHTML = '<option value="">전체 코드</option>' +
+                            codes.map(code => \`<option value="\${code.code}">\${code.code} (\${code.valid_date}) - \${code.participant_count}명</option>\`).join('');
+                        teamStatsCodeSelect.value = currentValue;
+                    }
                 } catch (error) {
                     console.error('Error loading codes:', error);
                 }
