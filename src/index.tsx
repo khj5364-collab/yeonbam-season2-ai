@@ -360,7 +360,7 @@ app.get('/api/admin/stats', async (c) => {
   }
 })
 
-// 8-1. 관리자 - 팀 랜덤 배정 API
+// 8-1. 관리자 - 팀 랜덤 배정 API (모든 참가자 재배정)
 app.post('/api/admin/assign-teams', async (c) => {
   try {
     const { code, adminPassword } = await c.req.json()
@@ -373,17 +373,23 @@ app.post('/api/admin/assign-teams', async (c) => {
       return c.json({ success: false, message: '코드를 입력해주세요.' }, 400)
     }
 
-    // 해당 코드의 팀 미배정 참가자 조회
+    // 해당 코드의 모든 참가자 조회 (배정 여부 무관)
     const { results: participants } = await c.env.DB.prepare(`
       SELECT id, nickname, gender 
       FROM participants 
-      WHERE access_code = ? AND team_number IS NULL
+      WHERE access_code = ?
       ORDER BY created_at
     `).bind(code).all()
 
     if (participants.length === 0) {
-      return c.json({ success: false, message: '팀 배정이 필요한 참가자가 없습니다.' }, 400)
+      return c.json({ success: false, message: '해당 코드로 등록된 참가자가 없습니다.' }, 400)
     }
+
+    // 기존 팀 카운트 초기화
+    await c.env.DB.prepare(`
+      UPDATE teams 
+      SET male_count = 0, female_count = 0, total_count = 0
+    `).run()
 
     // 성별로 분류
     const males = participants.filter((p: any) => p.gender === 'male')
@@ -420,7 +426,7 @@ app.post('/api/admin/assign-teams', async (c) => {
       teamAssignments[teamNumber].push(female)
     })
 
-    // 데이터베이스 업데이트
+    // 데이터베이스 업데이트 - 모든 참가자의 팀 번호 새로 배정
     for (const teamNumber in teamAssignments) {
       const members = teamAssignments[teamNumber]
       for (const member of members) {
@@ -440,17 +446,19 @@ app.post('/api/admin/assign-teams', async (c) => {
       
       await c.env.DB.prepare(`
         UPDATE teams 
-        SET male_count = male_count + ?,
-            female_count = female_count + ?,
-            total_count = total_count + ?
+        SET male_count = ?,
+            female_count = ?,
+            total_count = ?
         WHERE team_number = ?
       `).bind(maleCount, femaleCount, teamMembers.length, i).run()
     }
 
     return c.json({ 
       success: true, 
-      message: `${participants.length}명의 참가자가 6개 팀에 랜덤 배정되었습니다.`,
-      assignedCount: participants.length
+      message: `${participants.length}명의 참가자가 6개 팀에 랜덤 재배정되었습니다.`,
+      assignedCount: participants.length,
+      maleCount: males.length,
+      femaleCount: females.length
     })
   } catch (error) {
     console.error('Error assigning teams:', error)
@@ -1134,8 +1142,8 @@ app.get('/admin', (c) => {
                     <div class="bg-yellow-50 border-l-4 border-yellow-500 p-4 mb-4">
                         <p class="text-sm text-yellow-800">
                             <i class="fas fa-exclamation-triangle mr-2"></i>
-                            <strong>주의:</strong> 선택한 코드의 팀 미배정 참가자들을 6개 팀에 랜덤으로 배정합니다.
-                            성비 균형을 유지하며 배정됩니다.
+                            <strong>주의:</strong> 선택한 코드의 <strong>모든 참가자</strong>를 6개 팀에 랜덤으로 <strong>재배정</strong>합니다.
+                            기존 팀 배정은 초기화되고, 성비 균형을 유지하며 새로 배정됩니다.
                         </p>
                     </div>
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
@@ -1329,7 +1337,7 @@ app.get('/admin', (c) => {
                     return;
                 }
 
-                if (!confirm(\`코드 '\${code}'의 참가자들을 6개 팀에 랜덤 배정하시겠습니까?\\n\\n⚠️ 이미 배정된 참가자는 제외되고, 미배정 참가자만 배정됩니다.\`)) {
+                if (!confirm(\`코드 '\${code}'의 모든 참가자를 6개 팀에 랜덤 재배정하시겠습니까?\\n\\n⚠️ 주의: 기존 팀 배정은 모두 초기화되고 새로 배정됩니다.\`)) {
                     return;
                 }
 
