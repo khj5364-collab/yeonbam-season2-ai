@@ -212,20 +212,101 @@ app.post('/api/admin/generate-code', async (c) => {
       return c.json({ success: false, message: '코드와 날짜를 입력해주세요.' }, 400)
     }
 
-    // 기존 코드 비활성화
-    await c.env.DB.prepare(`
-      UPDATE daily_codes SET is_active = 0 WHERE valid_date = ?
-    `).bind(validDate).run()
+    // 중복 코드 확인
+    const existing = await c.env.DB.prepare(`
+      SELECT id FROM daily_codes WHERE code = ?
+    `).bind(code).first()
 
-    // 새 코드 생성
+    if (existing) {
+      return c.json({ success: false, message: '이미 존재하는 코드입니다.' }, 400)
+    }
+
+    // 새 코드 생성 (기본적으로 비활성 상태로 생성)
     await c.env.DB.prepare(`
       INSERT INTO daily_codes (code, valid_date, is_active)
-      VALUES (?, ?, 1)
+      VALUES (?, ?, 0)
     `).bind(code, validDate).run()
 
     return c.json({ success: true, message: '일일 코드가 생성되었습니다.', code, validDate })
   } catch (error) {
     console.error('Error generating code:', error)
+    return c.json({ success: false, message: '서버 오류가 발생했습니다.' }, 500)
+  }
+})
+
+// 7-1. 관리자 - 코드 활성화/비활성화 API
+app.post('/api/admin/toggle-code', async (c) => {
+  try {
+    const { code, adminPassword } = await c.req.json()
+    
+    if (adminPassword !== 'admin2024') {
+      return c.json({ success: false, message: '관리자 권한이 없습니다.' }, 403)
+    }
+
+    if (!code) {
+      return c.json({ success: false, message: '코드를 입력해주세요.' }, 400)
+    }
+
+    // 현재 상태 조회
+    const current = await c.env.DB.prepare(`
+      SELECT is_active FROM daily_codes WHERE code = ?
+    `).bind(code).first()
+
+    if (!current) {
+      return c.json({ success: false, message: '코드를 찾을 수 없습니다.' }, 404)
+    }
+
+    // 상태 토글
+    const newStatus = current.is_active === 1 ? 0 : 1
+    await c.env.DB.prepare(`
+      UPDATE daily_codes SET is_active = ? WHERE code = ?
+    `).bind(newStatus, code).run()
+
+    return c.json({ 
+      success: true, 
+      message: newStatus === 1 ? '코드가 활성화되었습니다.' : '코드가 비활성화되었습니다.',
+      code,
+      isActive: newStatus
+    })
+  } catch (error) {
+    console.error('Error toggling code:', error)
+    return c.json({ success: false, message: '서버 오류가 발생했습니다.' }, 500)
+  }
+})
+
+// 7-2. 관리자 - 코드 삭제 API
+app.post('/api/admin/delete-code', async (c) => {
+  try {
+    const { code, adminPassword } = await c.req.json()
+    
+    if (adminPassword !== 'admin2024') {
+      return c.json({ success: false, message: '관리자 권한이 없습니다.' }, 403)
+    }
+
+    if (!code) {
+      return c.json({ success: false, message: '코드를 입력해주세요.' }, 400)
+    }
+
+    // 참가자가 있는지 확인
+    const participantCount = await c.env.DB.prepare(`
+      SELECT COUNT(*) as count FROM participants WHERE access_code = ?
+    `).bind(code).first()
+
+    if (participantCount && participantCount.count > 0) {
+      return c.json({ 
+        success: false, 
+        message: `이 코드로 ${participantCount.count}명의 참가자가 등록되어 있어 삭제할 수 없습니다.` 
+      }, 400)
+    }
+
+    // 코드 삭제
+    await c.env.DB.prepare(`
+      DELETE FROM daily_codes WHERE code = ?
+    `).bind(code).run()
+
+    return c.json({ success: true, message: '코드가 삭제되었습니다.', code })
+  } catch (error) {
+    console.error('Error deleting code:', error)
     return c.json({ success: false, message: '서버 오류가 발생했습니다.' }, 500)
   }
 })
@@ -741,10 +822,17 @@ app.get('/admin', (c) => {
                     <h2 class="text-2xl font-bold text-gray-800 mb-4">
                         <i class="fas fa-key mr-2"></i>일일 코드 생성
                     </h2>
+                    <div class="bg-blue-50 border-l-4 border-blue-500 p-4 mb-4">
+                        <p class="text-sm text-blue-800">
+                            <i class="fas fa-info-circle mr-2"></i>
+                            새로운 코드는 <strong>비활성 상태</strong>로 생성됩니다. 
+                            아래 '입장 코드별 현황'에서 활성화 버튼을 클릭하여 사용 시작하세요.
+                        </p>
+                    </div>
                     <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
                         <input type="text" id="newCode" 
                                class="px-4 py-3 border-2 border-gray-300 rounded-lg focus:border-indigo-500 focus:outline-none" 
-                               placeholder="코드 (예: ABC123)">
+                               placeholder="코드 (예: 0000, 1234)">
                         <input type="date" id="validDate" 
                                class="px-4 py-3 border-2 border-gray-300 rounded-lg focus:border-indigo-500 focus:outline-none">
                         <input type="password" id="adminPassword" 
@@ -753,15 +841,23 @@ app.get('/admin', (c) => {
                     </div>
                     <button onclick="generateCode()" 
                             class="w-full bg-indigo-600 text-white py-3 rounded-lg font-semibold hover:bg-indigo-700 transition duration-200">
-                        <i class="fas fa-plus mr-2"></i>코드 생성
+                        <i class="fas fa-plus mr-2"></i>코드 생성 (비활성 상태로)
                     </button>
                 </div>
 
                 <!-- 입장 코드 목록 -->
                 <div class="bg-white rounded-xl shadow-lg p-6 mb-6">
                     <h2 class="text-2xl font-bold text-gray-800 mb-4">
-                        <i class="fas fa-list mr-2"></i>입장 코드별 현황
+                        <i class="fas fa-list mr-2"></i>입장 코드별 현황 및 관리
                     </h2>
+                    <div class="bg-gray-50 rounded-lg p-4 mb-4 text-sm text-gray-700">
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+                            <div><i class="fas fa-toggle-on text-green-500 mr-2"></i><strong>활성화:</strong> 참가자가 이 코드로 입장 가능</div>
+                            <div><i class="fas fa-toggle-off text-orange-500 mr-2"></i><strong>비활성화:</strong> 참가자 입장 차단</div>
+                            <div><i class="fas fa-eye text-indigo-600 mr-2"></i><strong>상세보기:</strong> 코드별 참가자 및 팀 구성 확인</div>
+                            <div><i class="fas fa-trash text-red-500 mr-2"></i><strong>삭제:</strong> 참가자가 없는 코드만 삭제 가능</div>
+                        </div>
+                    </div>
                     <div id="codesList" class="space-y-3">
                         <!-- Codes will be loaded here -->
                     </div>
@@ -835,7 +931,7 @@ app.get('/admin', (c) => {
                     
                     container.innerHTML = codes.map(code => \`
                         <div class="border-2 \${code.is_active ? 'border-green-500 bg-green-50' : 'border-gray-300 bg-gray-50'} rounded-lg p-4">
-                            <div class="flex items-center justify-between mb-2">
+                            <div class="flex flex-col md:flex-row md:items-center justify-between gap-3">
                                 <div class="flex items-center gap-3">
                                     <div class="bg-indigo-600 text-white px-4 py-2 rounded-lg font-bold text-lg">
                                         \${code.code}
@@ -847,21 +943,74 @@ app.get('/admin', (c) => {
                                         </div>
                                     </div>
                                 </div>
-                                <div class="flex items-center gap-2">
+                                <div class="flex flex-wrap items-center gap-2">
                                     \${code.is_active 
                                         ? '<span class="bg-green-500 text-white px-3 py-1 rounded-full text-sm font-semibold"><i class="fas fa-check mr-1"></i>활성</span>' 
-                                        : '<span class="bg-gray-400 text-white px-3 py-1 rounded-full text-sm font-semibold">비활성</span>'
+                                        : '<span class="bg-gray-400 text-white px-3 py-1 rounded-full text-sm font-semibold"><i class="fas fa-times mr-1"></i>비활성</span>'
                                     }
+                                    <button onclick="toggleCode('\${code.code}')" 
+                                            class="\${code.is_active ? 'bg-orange-500 hover:bg-orange-600' : 'bg-green-500 hover:bg-green-600'} text-white px-4 py-2 rounded-lg transition duration-200 text-sm font-semibold">
+                                        <i class="fas fa-\${code.is_active ? 'toggle-off' : 'toggle-on'} mr-1"></i>\${code.is_active ? '비활성화' : '활성화'}
+                                    </button>
                                     <button onclick="viewCodeParticipants('\${code.code}')" 
-                                            class="bg-indigo-600 text-white px-4 py-2 rounded-lg hover:bg-indigo-700 transition duration-200">
+                                            class="bg-indigo-600 text-white px-4 py-2 rounded-lg hover:bg-indigo-700 transition duration-200 text-sm font-semibold">
                                         <i class="fas fa-eye mr-1"></i>상세보기
                                     </button>
+                                    \${code.participant_count === 0 
+                                        ? \`<button onclick="deleteCode('\${code.code}')" 
+                                                class="bg-red-500 text-white px-4 py-2 rounded-lg hover:bg-red-600 transition duration-200 text-sm font-semibold">
+                                            <i class="fas fa-trash mr-1"></i>삭제
+                                        </button>\`
+                                        : ''
+                                    }
                                 </div>
                             </div>
                         </div>
                     \`).join('');
                 } catch (error) {
                     console.error('Error loading codes:', error);
+                }
+            }
+
+            async function toggleCode(code) {
+                const password = prompt('관리자 비밀번호를 입력하세요:');
+                if (!password) return;
+
+                try {
+                    const response = await axios.post('/api/admin/toggle-code', {
+                        code,
+                        adminPassword: password
+                    });
+
+                    if (response.data.success) {
+                        alert(response.data.message);
+                        loadCodes(); // 코드 목록 새로고침
+                    }
+                } catch (error) {
+                    alert(error.response?.data?.message || '코드 상태 변경 실패');
+                }
+            }
+
+            async function deleteCode(code) {
+                if (!confirm(\`코드 '\${code}'를 정말로 삭제하시겠습니까?\\n\\n⚠️ 이 작업은 되돌릴 수 없습니다.\`)) {
+                    return;
+                }
+
+                const password = prompt('관리자 비밀번호를 입력하세요:');
+                if (!password) return;
+
+                try {
+                    const response = await axios.post('/api/admin/delete-code', {
+                        code,
+                        adminPassword: password
+                    });
+
+                    if (response.data.success) {
+                        alert(response.data.message);
+                        loadCodes(); // 코드 목록 새로고침
+                    }
+                } catch (error) {
+                    alert(error.response?.data?.message || '코드 삭제 실패');
                 }
             }
 
