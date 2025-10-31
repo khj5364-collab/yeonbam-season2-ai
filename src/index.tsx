@@ -609,7 +609,7 @@ app.get('/', (c) => {
     <head>
         <meta charset="UTF-8">
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <title>팀 빌딩 시스템</title>
+        <title>YEONBAM SEASON 2 AI</title>
         <script src="https://cdn.tailwindcss.com"></script>
         <link href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.4.0/css/all.min.css" rel="stylesheet">
     </head>
@@ -618,7 +618,7 @@ app.get('/', (c) => {
             <div class="max-w-md mx-auto bg-white rounded-2xl shadow-xl p-8">
                 <div class="text-center mb-8">
                     <i class="fas fa-users text-indigo-600 text-6xl mb-4"></i>
-                    <h1 class="text-3xl font-bold text-gray-800 mb-2">팀 빌딩 시스템</h1>
+                    <h1 class="text-3xl font-bold text-gray-800 mb-2">YEONBAM SEASON 2 AI</h1>
                 </div>
 
                 <!-- 신규/재입장 선택 -->
