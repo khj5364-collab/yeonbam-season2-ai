@@ -565,7 +565,6 @@ app.get('/', (c) => {
                 <div class="text-center mb-8">
                     <i class="fas fa-users text-indigo-600 text-6xl mb-4"></i>
                     <h1 class="text-3xl font-bold text-gray-800 mb-2">팀 빌딩 시스템</h1>
-                    <p class="text-gray-600">QR 코드를 스캔하여 입장하세요</p>
                 </div>
 
                 <!-- 신규/재입장 선택 -->
@@ -697,8 +696,8 @@ app.get('/', (c) => {
                         <p class="text-gray-600 text-sm">관리자가 팀을 배정할 때까지 기다려주세요.</p>
                         <p class="text-gray-600 text-sm mt-2">배정 완료 후 재입장하면 팀 번호를 확인할 수 있습니다.</p>
                     </div>
-                    <a href="/teams" class="inline-block bg-indigo-600 text-white px-6 py-3 rounded-lg font-semibold hover:bg-indigo-700 transition duration-200">
-                        <i class="fas fa-users mr-2"></i>전체 팀 보기
+                    <a href="/" class="inline-block bg-indigo-600 text-white px-6 py-3 rounded-lg font-semibold hover:bg-indigo-700 transition duration-200">
+                        <i class="fas fa-home mr-2"></i>홈으로
                     </a>
                 </div>
 
