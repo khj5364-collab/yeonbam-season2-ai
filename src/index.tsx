@@ -266,6 +266,83 @@ app.get('/api/admin/stats', async (c) => {
   }
 })
 
+// 9. 관리자 - 모든 입장 코드 목록 조회 API
+app.get('/api/admin/codes', async (c) => {
+  try {
+    const { results } = await c.env.DB.prepare(`
+      SELECT 
+        code,
+        valid_date,
+        is_active,
+        created_at,
+        (SELECT COUNT(*) FROM participants WHERE access_code = daily_codes.code) as participant_count
+      FROM daily_codes 
+      ORDER BY valid_date DESC, created_at DESC
+    `).all()
+
+    return c.json({ success: true, codes: results })
+  } catch (error) {
+    console.error('Error fetching codes:', error)
+    return c.json({ success: false, message: '서버 오류가 발생했습니다.' }, 500)
+  }
+})
+
+// 10. 관리자 - 특정 코드의 참가자 목록 조회 API
+app.get('/api/admin/code/:code/participants', async (c) => {
+  try {
+    const code = c.req.param('code')
+    
+    // 참가자 목록
+    const { results: participants } = await c.env.DB.prepare(`
+      SELECT 
+        p.id,
+        p.nickname,
+        p.gender,
+        p.team_number,
+        p.created_at
+      FROM participants p
+      WHERE p.access_code = ?
+      ORDER BY p.team_number, p.created_at
+    `).bind(code).all()
+
+    // 코드 정보
+    const codeInfo = await c.env.DB.prepare(`
+      SELECT code, valid_date, is_active, created_at 
+      FROM daily_codes 
+      WHERE code = ?
+    `).bind(code).first()
+
+    // 통계
+    const maleCount = participants.filter((p: any) => p.gender === 'male').length
+    const femaleCount = participants.filter((p: any) => p.gender === 'female').length
+
+    // 팀별 통계
+    const teamStats: any = {}
+    participants.forEach((p: any) => {
+      if (!teamStats[p.team_number]) {
+        teamStats[p.team_number] = { male: 0, female: 0, total: 0 }
+      }
+      teamStats[p.team_number][p.gender]++
+      teamStats[p.team_number].total++
+    })
+
+    return c.json({
+      success: true,
+      codeInfo,
+      participants,
+      stats: {
+        total: participants.length,
+        male: maleCount,
+        female: femaleCount,
+        teams: teamStats
+      }
+    })
+  } catch (error) {
+    console.error('Error fetching code participants:', error)
+    return c.json({ success: false, message: '서버 오류가 발생했습니다.' }, 500)
+  }
+})
+
 // ============================================
 // Frontend Routes
 // ============================================
@@ -680,10 +757,20 @@ app.get('/admin', (c) => {
                     </button>
                 </div>
 
+                <!-- 입장 코드 목록 -->
+                <div class="bg-white rounded-xl shadow-lg p-6 mb-6">
+                    <h2 class="text-2xl font-bold text-gray-800 mb-4">
+                        <i class="fas fa-list mr-2"></i>입장 코드별 현황
+                    </h2>
+                    <div id="codesList" class="space-y-3">
+                        <!-- Codes will be loaded here -->
+                    </div>
+                </div>
+
                 <!-- 팀별 현황 -->
                 <div class="bg-white rounded-xl shadow-lg p-6">
                     <h2 class="text-2xl font-bold text-gray-800 mb-4">
-                        <i class="fas fa-users mr-2"></i>팀별 현황
+                        <i class="fas fa-users mr-2"></i>전체 팀별 현황
                     </h2>
                     <div id="teamStats" class="space-y-3"></div>
                 </div>
@@ -735,6 +822,142 @@ app.get('/admin', (c) => {
                 }
             }
 
+            async function loadCodes() {
+                try {
+                    const response = await axios.get('/api/admin/codes');
+                    const codes = response.data.codes;
+                    
+                    const container = document.getElementById('codesList');
+                    if (codes.length === 0) {
+                        container.innerHTML = '<p class="text-gray-500 text-center py-4">아직 생성된 코드가 없습니다.</p>';
+                        return;
+                    }
+                    
+                    container.innerHTML = codes.map(code => \`
+                        <div class="border-2 \${code.is_active ? 'border-green-500 bg-green-50' : 'border-gray-300 bg-gray-50'} rounded-lg p-4">
+                            <div class="flex items-center justify-between mb-2">
+                                <div class="flex items-center gap-3">
+                                    <div class="bg-indigo-600 text-white px-4 py-2 rounded-lg font-bold text-lg">
+                                        \${code.code}
+                                    </div>
+                                    <div>
+                                        <div class="font-semibold text-gray-800">\${code.valid_date}</div>
+                                        <div class="text-sm text-gray-600">
+                                            <i class="fas fa-users mr-1"></i>\${code.participant_count}명 참가
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="flex items-center gap-2">
+                                    \${code.is_active 
+                                        ? '<span class="bg-green-500 text-white px-3 py-1 rounded-full text-sm font-semibold"><i class="fas fa-check mr-1"></i>활성</span>' 
+                                        : '<span class="bg-gray-400 text-white px-3 py-1 rounded-full text-sm font-semibold">비활성</span>'
+                                    }
+                                    <button onclick="viewCodeParticipants('\${code.code}')" 
+                                            class="bg-indigo-600 text-white px-4 py-2 rounded-lg hover:bg-indigo-700 transition duration-200">
+                                        <i class="fas fa-eye mr-1"></i>상세보기
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    \`).join('');
+                } catch (error) {
+                    console.error('Error loading codes:', error);
+                }
+            }
+
+            async function viewCodeParticipants(code) {
+                try {
+                    const response = await axios.get(\`/api/admin/code/\${code}/participants\`);
+                    const data = response.data;
+                    
+                    // 팀별로 참가자 그룹화
+                    const teamGroups = {};
+                    data.participants.forEach(p => {
+                        if (!teamGroups[p.team_number]) {
+                            teamGroups[p.team_number] = [];
+                        }
+                        teamGroups[p.team_number].push(p);
+                    });
+
+                    // 모달 생성
+                    const modal = document.createElement('div');
+                    modal.className = 'fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4';
+                    modal.onclick = (e) => {
+                        if (e.target === modal) modal.remove();
+                    };
+
+                    const teamList = Object.keys(teamGroups).sort((a, b) => a - b).map(teamNum => {
+                        const members = teamGroups[teamNum];
+                        const males = members.filter(m => m.gender === 'male').length;
+                        const females = members.filter(m => m.gender === 'female').length;
+                        
+                        return \`
+                            <div class="bg-gray-50 rounded-lg p-4 mb-3">
+                                <div class="flex items-center justify-between mb-3">
+                                    <h4 class="font-bold text-lg text-indigo-600">Team \${teamNum}</h4>
+                                    <div class="text-sm text-gray-600">
+                                        <i class="fas fa-mars text-blue-500"></i> \${males}명
+                                        <i class="fas fa-venus text-pink-500 ml-2"></i> \${females}명
+                                    </div>
+                                </div>
+                                <div class="grid grid-cols-2 gap-2">
+                                    \${members.map(m => \`
+                                        <div class="flex items-center gap-2 bg-white p-2 rounded">
+                                            <i class="fas fa-\${m.gender === 'male' ? 'mars text-blue-500' : 'venus text-pink-500'}"></i>
+                                            <span class="font-semibold">\${m.nickname}</span>
+                                        </div>
+                                    \`).join('')}
+                                </div>
+                            </div>
+                        \`;
+                    }).join('');
+
+                    modal.innerHTML = \`
+                        <div class="bg-white rounded-xl shadow-2xl max-w-3xl w-full max-h-[90vh] overflow-y-auto">
+                            <div class="sticky top-0 bg-white border-b p-6">
+                                <div class="flex items-center justify-between">
+                                    <div>
+                                        <h3 class="text-2xl font-bold text-gray-800">
+                                            코드: <span class="text-indigo-600">\${code}</span>
+                                        </h3>
+                                        <p class="text-gray-600">날짜: \${data.codeInfo.valid_date}</p>
+                                    </div>
+                                    <button onclick="this.closest('.fixed').remove()" 
+                                            class="text-gray-500 hover:text-gray-700">
+                                        <i class="fas fa-times text-2xl"></i>
+                                    </button>
+                                </div>
+                                <div class="grid grid-cols-3 gap-4 mt-4">
+                                    <div class="text-center p-3 bg-indigo-50 rounded-lg">
+                                        <div class="text-2xl font-bold text-indigo-600">\${data.stats.total}</div>
+                                        <div class="text-sm text-gray-600">전체</div>
+                                    </div>
+                                    <div class="text-center p-3 bg-blue-50 rounded-lg">
+                                        <div class="text-2xl font-bold text-blue-600">\${data.stats.male}</div>
+                                        <div class="text-sm text-gray-600">남성</div>
+                                    </div>
+                                    <div class="text-center p-3 bg-pink-50 rounded-lg">
+                                        <div class="text-2xl font-bold text-pink-600">\${data.stats.female}</div>
+                                        <div class="text-sm text-gray-600">여성</div>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="p-6">
+                                <h4 class="text-xl font-bold text-gray-800 mb-4">
+                                    <i class="fas fa-users mr-2"></i>팀별 참가자
+                                </h4>
+                                \${teamList || '<p class="text-gray-500 text-center py-8">참가자가 없습니다.</p>'}
+                            </div>
+                        </div>
+                    \`;
+
+                    document.body.appendChild(modal);
+                } catch (error) {
+                    alert('참가자 목록을 불러오는데 실패했습니다.');
+                    console.error(error);
+                }
+            }
+
             async function generateCode() {
                 const code = document.getElementById('newCode').value.trim();
                 const validDate = document.getElementById('validDate').value;
@@ -756,6 +979,7 @@ app.get('/admin', (c) => {
                         alert(\`일일 코드가 생성되었습니다!\\n코드: \${code}\\n날짜: \${validDate}\`);
                         document.getElementById('newCode').value = '';
                         document.getElementById('adminPassword').value = '';
+                        loadCodes(); // 코드 목록 새로고침
                     }
                 } catch (error) {
                     alert(error.response?.data?.message || '코드 생성 실패');
@@ -763,7 +987,11 @@ app.get('/admin', (c) => {
             }
 
             loadStats();
-            setInterval(loadStats, 5000); // 5초마다 통계 새로고침
+            loadCodes();
+            setInterval(() => {
+                loadStats();
+                loadCodes();
+            }, 5000); // 5초마다 통계 새로고침
         </script>
     </body>
     </html>
