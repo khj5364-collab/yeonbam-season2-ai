@@ -104,34 +104,11 @@ app.post('/api/register', async (c) => {
       return c.json({ success: false, message: '이미 사용중인 닉네임입니다.' }, 400)
     }
 
-    // 팀 배정 로직 (성비 균형)
-    const teams = await c.env.DB.prepare(`
-      SELECT team_number, male_count, female_count, total_count 
-      FROM teams 
-      ORDER BY total_count ASC, team_number ASC
-    `).all()
-
-    let assignedTeam = 1
-    if (teams.results.length > 0) {
-      // 성별에 따라 가장 적은 팀에 배정
-      const sortedTeams = teams.results.sort((a: any, b: any) => {
-        const genderCountA = gender === 'male' ? a.male_count : a.female_count
-        const genderCountB = gender === 'male' ? b.male_count : b.female_count
-        
-        if (genderCountA !== genderCountB) {
-          return genderCountA - genderCountB
-        }
-        return a.total_count - b.total_count
-      })
-      
-      assignedTeam = sortedTeams[0].team_number
-    }
-
-    // 참가자 등록
+    // 참가자 등록 (팀 배정은 나중에 관리자가 수행)
     const insertResult = await c.env.DB.prepare(`
       INSERT INTO participants (nickname, gender, access_code, team_number)
-      VALUES (?, ?, ?, ?)
-    `).bind(nickname, gender, accessCode, assignedTeam).run()
+      VALUES (?, ?, ?, NULL)
+    `).bind(nickname, gender, accessCode).run()
 
     const participantId = insertResult.meta.last_row_id
 
@@ -143,18 +120,10 @@ app.post('/api/register', async (c) => {
       `).bind(participantId, response.questionId, response.value).run()
     }
 
-    // 팀 카운트 업데이트
-    await c.env.DB.prepare(`
-      UPDATE teams 
-      SET ${gender === 'male' ? 'male_count = male_count + 1' : 'female_count = female_count + 1'},
-          total_count = total_count + 1
-      WHERE team_number = ?
-    `).bind(assignedTeam).run()
-
     return c.json({ 
       success: true, 
-      message: '등록이 완료되었습니다!', 
-      teamNumber: assignedTeam,
+      message: '등록이 완료되었습니다! 관리자가 팀을 배정할 때까지 기다려주세요.', 
+      teamNumber: null,
       participantId 
     })
   } catch (error) {
@@ -194,6 +163,50 @@ app.get('/api/team/:teamNumber', async (c) => {
     return c.json({ success: true, members: results })
   } catch (error) {
     console.error('Error fetching team members:', error)
+    return c.json({ success: false, message: '서버 오류가 발생했습니다.' }, 500)
+  }
+})
+
+// 6-1. 재입장자 확인 API
+app.post('/api/reentry-check', async (c) => {
+  try {
+    const { code, nickname } = await c.req.json()
+    
+    if (!code || !nickname) {
+      return c.json({ success: false, message: '코드와 닉네임을 입력해주세요.' }, 400)
+    }
+
+    // 코드 유효성 확인
+    const validCode = await c.env.DB.prepare(`
+      SELECT * FROM daily_codes 
+      WHERE code = ? AND valid_date = date('now') AND is_active = 1
+    `).bind(code).first()
+
+    if (!validCode) {
+      return c.json({ success: false, message: '유효하지 않은 코드입니다.' }, 400)
+    }
+
+    // 참가자 확인
+    const participant = await c.env.DB.prepare(`
+      SELECT id, nickname, gender, team_number, access_code, created_at
+      FROM participants 
+      WHERE nickname = ? AND access_code = ?
+    `).bind(nickname, code).first()
+
+    if (!participant) {
+      return c.json({ success: false, message: '해당 닉네임으로 등록된 참가자를 찾을 수 없습니다.' }, 404)
+    }
+
+    return c.json({ 
+      success: true, 
+      message: '재입장이 확인되었습니다.', 
+      participant: {
+        nickname: participant.nickname,
+        teamNumber: participant.team_number
+      }
+    })
+  } catch (error) {
+    console.error('Error checking reentry:', error)
     return c.json({ success: false, message: '서버 오류가 발생했습니다.' }, 500)
   }
 })
@@ -347,6 +360,104 @@ app.get('/api/admin/stats', async (c) => {
   }
 })
 
+// 8-1. 관리자 - 팀 랜덤 배정 API
+app.post('/api/admin/assign-teams', async (c) => {
+  try {
+    const { code, adminPassword } = await c.req.json()
+    
+    if (adminPassword !== 'qwer1234') {
+      return c.json({ success: false, message: '관리자 권한이 없습니다.' }, 403)
+    }
+
+    if (!code) {
+      return c.json({ success: false, message: '코드를 입력해주세요.' }, 400)
+    }
+
+    // 해당 코드의 팀 미배정 참가자 조회
+    const { results: participants } = await c.env.DB.prepare(`
+      SELECT id, nickname, gender 
+      FROM participants 
+      WHERE access_code = ? AND team_number IS NULL
+      ORDER BY created_at
+    `).bind(code).all()
+
+    if (participants.length === 0) {
+      return c.json({ success: false, message: '팀 배정이 필요한 참가자가 없습니다.' }, 400)
+    }
+
+    // 성별로 분류
+    const males = participants.filter((p: any) => p.gender === 'male')
+    const females = participants.filter((p: any) => p.gender === 'female')
+
+    // 랜덤 셔플 함수
+    const shuffle = (array: any[]) => {
+      const shuffled = [...array]
+      for (let i = shuffled.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]]
+      }
+      return shuffled
+    }
+
+    // 성별로 셔플
+    const shuffledMales = shuffle(males)
+    const shuffledFemales = shuffle(females)
+
+    // 6팀에 번갈아가며 배정 (성비 균형)
+    const teamAssignments: any = {
+      1: [], 2: [], 3: [], 4: [], 5: [], 6: []
+    }
+
+    // 남성 배정
+    shuffledMales.forEach((male: any, index: number) => {
+      const teamNumber = (index % 6) + 1
+      teamAssignments[teamNumber].push(male)
+    })
+
+    // 여성 배정
+    shuffledFemales.forEach((female: any, index: number) => {
+      const teamNumber = (index % 6) + 1
+      teamAssignments[teamNumber].push(female)
+    })
+
+    // 데이터베이스 업데이트
+    for (const teamNumber in teamAssignments) {
+      const members = teamAssignments[teamNumber]
+      for (const member of members) {
+        await c.env.DB.prepare(`
+          UPDATE participants 
+          SET team_number = ? 
+          WHERE id = ?
+        `).bind(parseInt(teamNumber), member.id).run()
+      }
+    }
+
+    // 팀 카운트 업데이트
+    for (let i = 1; i <= 6; i++) {
+      const teamMembers = teamAssignments[i]
+      const maleCount = teamMembers.filter((m: any) => m.gender === 'male').length
+      const femaleCount = teamMembers.filter((m: any) => m.gender === 'female').length
+      
+      await c.env.DB.prepare(`
+        UPDATE teams 
+        SET male_count = male_count + ?,
+            female_count = female_count + ?,
+            total_count = total_count + ?
+        WHERE team_number = ?
+      `).bind(maleCount, femaleCount, teamMembers.length, i).run()
+    }
+
+    return c.json({ 
+      success: true, 
+      message: `${participants.length}명의 참가자가 6개 팀에 랜덤 배정되었습니다.`,
+      assignedCount: participants.length
+    })
+  } catch (error) {
+    console.error('Error assigning teams:', error)
+    return c.json({ success: false, message: '서버 오류가 발생했습니다.' }, 500)
+  }
+})
+
 // 9. 관리자 - 모든 입장 코드 목록 조회 API
 app.get('/api/admin/codes', async (c) => {
   try {
@@ -449,19 +560,74 @@ app.get('/', (c) => {
                     <p class="text-gray-600">QR 코드를 스캔하여 입장하세요</p>
                 </div>
 
-                <!-- 입장 코드 입력 -->
-                <div id="step1" class="step">
+                <!-- 신규/재입장 선택 -->
+                <div id="step0" class="step">
+                    <div class="mb-6">
+                        <label class="block text-gray-700 font-semibold mb-4 text-center">
+                            <i class="fas fa-user-plus mr-2"></i>입장 유형을 선택하세요
+                        </label>
+                        <div class="grid grid-cols-2 gap-4">
+                            <button onclick="selectEntryType('new')" 
+                                    class="entry-type-btn py-8 border-2 border-gray-300 rounded-lg hover:border-indigo-500 hover:bg-indigo-50 transition duration-200">
+                                <i class="fas fa-user-plus text-indigo-600 text-4xl mb-3"></i>
+                                <div class="font-bold text-lg">신규 입장자</div>
+                                <div class="text-sm text-gray-600 mt-1">처음 방문하시는 분</div>
+                            </button>
+                            <button onclick="selectEntryType('reentry')" 
+                                    class="entry-type-btn py-8 border-2 border-gray-300 rounded-lg hover:border-green-500 hover:bg-green-50 transition duration-200">
+                                <i class="fas fa-user-check text-green-600 text-4xl mb-3"></i>
+                                <div class="font-bold text-lg">재입장자</div>
+                                <div class="text-sm text-gray-600 mt-1">이미 등록하신 분</div>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 신규 입장자 - 입장 코드 입력 -->
+                <div id="step1-new" class="step hidden">
                     <div class="mb-6">
                         <label class="block text-gray-700 font-semibold mb-2">
                             <i class="fas fa-key mr-2"></i>입장 코드
                         </label>
-                        <input type="text" id="accessCode" 
+                        <input type="text" id="accessCodeNew" 
                                class="w-full px-4 py-3 border-2 border-gray-300 rounded-lg focus:border-indigo-500 focus:outline-none" 
                                placeholder="입장 코드를 입력하세요">
                     </div>
-                    <button onclick="verifyCode()" 
+                    <button onclick="verifyCodeNew()" 
                             class="w-full bg-indigo-600 text-white py-3 rounded-lg font-semibold hover:bg-indigo-700 transition duration-200">
                         <i class="fas fa-arrow-right mr-2"></i>다음
+                    </button>
+                    <button onclick="backToStep(0)" 
+                            class="w-full mt-3 bg-gray-300 text-gray-700 py-3 rounded-lg font-semibold hover:bg-gray-400 transition duration-200">
+                        <i class="fas fa-arrow-left mr-2"></i>돌아가기
+                    </button>
+                </div>
+
+                <!-- 재입장자 - 코드와 닉네임 입력 -->
+                <div id="step1-reentry" class="step hidden">
+                    <div class="mb-6">
+                        <label class="block text-gray-700 font-semibold mb-2">
+                            <i class="fas fa-key mr-2"></i>입장 코드
+                        </label>
+                        <input type="text" id="accessCodeReentry" 
+                               class="w-full px-4 py-3 border-2 border-gray-300 rounded-lg focus:border-indigo-500 focus:outline-none" 
+                               placeholder="입장 코드를 입력하세요">
+                    </div>
+                    <div class="mb-6">
+                        <label class="block text-gray-700 font-semibold mb-2">
+                            <i class="fas fa-user mr-2"></i>닉네임
+                        </label>
+                        <input type="text" id="nicknameReentry" 
+                               class="w-full px-4 py-3 border-2 border-gray-300 rounded-lg focus:border-indigo-500 focus:outline-none" 
+                               placeholder="등록하신 닉네임을 입력하세요">
+                    </div>
+                    <button onclick="verifyReentry()" 
+                            class="w-full bg-green-600 text-white py-3 rounded-lg font-semibold hover:bg-green-700 transition duration-200">
+                        <i class="fas fa-sign-in-alt mr-2"></i>재입장
+                    </button>
+                    <button onclick="backToStep(0)" 
+                            class="w-full mt-3 bg-gray-300 text-gray-700 py-3 rounded-lg font-semibold hover:bg-gray-400 transition duration-200">
+                        <i class="fas fa-arrow-left mr-2"></i>돌아가기
                     </button>
                 </div>
 
@@ -513,14 +679,27 @@ app.get('/', (c) => {
                     </button>
                 </div>
 
-                <!-- 완료 -->
-                <div id="step4" class="step hidden text-center">
+                <!-- 완료 (신규 입장자) -->
+                <div id="step4-new" class="step hidden text-center">
                     <i class="fas fa-check-circle text-green-500 text-6xl mb-4"></i>
                     <h2 class="text-2xl font-bold text-gray-800 mb-4">등록 완료!</h2>
-                    <div class="bg-indigo-50 rounded-lg p-6 mb-6">
-                        <p class="text-gray-700 mb-2">당신의 팀은</p>
-                        <p class="text-5xl font-bold text-indigo-600" id="teamNumber">-</p>
-                        <p class="text-gray-700 mt-2">팀 입니다</p>
+                    <div class="bg-yellow-50 border-2 border-yellow-400 rounded-lg p-6 mb-6">
+                        <i class="fas fa-clock text-yellow-600 text-4xl mb-3"></i>
+                        <p class="text-gray-800 font-semibold mb-2">팀 배정 대기중</p>
+                        <p class="text-gray-600 text-sm">관리자가 팀을 배정할 때까지 기다려주세요.</p>
+                        <p class="text-gray-600 text-sm mt-2">배정 완료 후 재입장하면 팀 번호를 확인할 수 있습니다.</p>
+                    </div>
+                    <a href="/teams" class="inline-block bg-indigo-600 text-white px-6 py-3 rounded-lg font-semibold hover:bg-indigo-700 transition duration-200">
+                        <i class="fas fa-users mr-2"></i>전체 팀 보기
+                    </a>
+                </div>
+
+                <!-- 완료 (재입장자) -->
+                <div id="step4-reentry" class="step hidden text-center">
+                    <i class="fas fa-user-check text-green-500 text-6xl mb-4"></i>
+                    <h2 class="text-2xl font-bold text-gray-800 mb-4">재입장 완료!</h2>
+                    <div id="reentryTeamInfo" class="bg-indigo-50 rounded-lg p-6 mb-6">
+                        <!-- 팀 정보가 여기 표시됨 -->
                     </div>
                     <a href="/teams" class="inline-block bg-indigo-600 text-white px-6 py-3 rounded-lg font-semibold hover:bg-indigo-700 transition duration-200">
                         <i class="fas fa-users mr-2"></i>전체 팀 보기
@@ -538,13 +717,27 @@ app.get('/', (c) => {
 
         <script src="https://cdn.jsdelivr.net/npm/axios@1.6.0/dist/axios.min.js"></script>
         <script>
-            let currentStep = 1;
+            let currentStep = 0;
+            let entryType = null;
             let selectedGender = null;
             let verifiedCode = null;
             let questions = [];
 
-            async function verifyCode() {
-                const code = document.getElementById('accessCode').value.trim();
+            function selectEntryType(type) {
+                entryType = type;
+                if (type === 'new') {
+                    showStep('1-new');
+                } else {
+                    showStep('1-reentry');
+                }
+            }
+
+            function backToStep(step) {
+                showStep(step);
+            }
+
+            async function verifyCodeNew() {
+                const code = document.getElementById('accessCodeNew').value.trim();
                 if (!code) {
                     alert('입장 코드를 입력해주세요.');
                     return;
@@ -558,6 +751,46 @@ app.get('/', (c) => {
                     }
                 } catch (error) {
                     alert(error.response?.data?.message || '코드 검증 실패');
+                }
+            }
+
+            async function verifyReentry() {
+                const code = document.getElementById('accessCodeReentry').value.trim();
+                const nickname = document.getElementById('nicknameReentry').value.trim();
+                
+                if (!code || !nickname) {
+                    alert('입장 코드와 닉네임을 모두 입력해주세요.');
+                    return;
+                }
+
+                try {
+                    const response = await axios.post('/api/reentry-check', { code, nickname });
+                    if (response.data.success) {
+                        const participant = response.data.participant;
+                        const teamInfoDiv = document.getElementById('reentryTeamInfo');
+                        
+                        if (participant.teamNumber) {
+                            teamInfoDiv.innerHTML = \`
+                                <p class="text-gray-700 mb-2">환영합니다, <strong>\${participant.nickname}</strong>님!</p>
+                                <p class="text-gray-700 mb-2">당신의 팀은</p>
+                                <p class="text-5xl font-bold text-indigo-600">\${participant.teamNumber}</p>
+                                <p class="text-gray-700 mt-2">팀 입니다</p>
+                            \`;
+                        } else {
+                            teamInfoDiv.innerHTML = \`
+                                <p class="text-gray-700 mb-2">환영합니다, <strong>\${participant.nickname}</strong>님!</p>
+                                <div class="bg-yellow-50 border-2 border-yellow-400 rounded-lg p-4 mt-4">
+                                    <i class="fas fa-clock text-yellow-600 text-3xl mb-2"></i>
+                                    <p class="text-gray-800 font-semibold">팀 배정 대기중</p>
+                                    <p class="text-gray-600 text-sm mt-2">관리자가 팀을 배정할 때까지 기다려주세요.</p>
+                                </div>
+                            \`;
+                        }
+                        
+                        showStep('4-reentry');
+                    }
+                } catch (error) {
+                    alert(error.response?.data?.message || '재입장 확인 실패');
                 }
             }
 
@@ -656,8 +889,7 @@ app.get('/', (c) => {
                     });
 
                     if (response.data.success) {
-                        document.getElementById('teamNumber').textContent = response.data.teamNumber;
-                        showStep(4);
+                        showStep('4-new');
                     }
                 } catch (error) {
                     alert(error.response?.data?.message || '등록 실패');
@@ -894,6 +1126,38 @@ app.get('/admin', (c) => {
                     </div>
                 </div>
 
+                <!-- 팀 랜덤 배정 -->
+                <div class="bg-white rounded-xl shadow-lg p-6 mb-6">
+                    <h2 class="text-2xl font-bold text-gray-800 mb-4">
+                        <i class="fas fa-random mr-2"></i>팀 랜덤 배정
+                    </h2>
+                    <div class="bg-yellow-50 border-l-4 border-yellow-500 p-4 mb-4">
+                        <p class="text-sm text-yellow-800">
+                            <i class="fas fa-exclamation-triangle mr-2"></i>
+                            <strong>주의:</strong> 선택한 코드의 팀 미배정 참가자들을 6개 팀에 랜덤으로 배정합니다.
+                            성비 균형을 유지하며 배정됩니다.
+                        </p>
+                    </div>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                        <div>
+                            <label class="block text-gray-700 font-semibold mb-2">
+                                <i class="fas fa-key mr-2"></i>입장 코드 선택
+                            </label>
+                            <select id="assignCodeSelect" 
+                                   class="w-full px-4 py-3 border-2 border-gray-300 rounded-lg focus:border-indigo-500 focus:outline-none">
+                                <option value="">코드를 선택하세요</option>
+                            </select>
+                        </div>
+                        <div class="flex items-end">
+                            <button onclick="assignTeamsRandomly()" 
+                                    class="w-full bg-purple-600 text-white py-3 rounded-lg font-semibold hover:bg-purple-700 transition duration-200">
+                                <i class="fas fa-random mr-2"></i>팀 랜덤 배정 실행
+                            </button>
+                        </div>
+                    </div>
+                    <div id="assignResult" class="mt-4"></div>
+                </div>
+
                 <!-- 팀별 현황 -->
                 <div class="bg-white rounded-xl shadow-lg p-6">
                     <h2 class="text-2xl font-bold text-gray-800 mb-4">
@@ -1047,8 +1311,57 @@ app.get('/admin', (c) => {
                             </div>
                         </div>
                     \`).join('');
+
+                    // 팀 배정 select 옵션 업데이트
+                    const selectElement = document.getElementById('assignCodeSelect');
+                    selectElement.innerHTML = '<option value="">코드를 선택하세요</option>' +
+                        codes.map(code => \`<option value="\${code.code}">\${code.code} (\${code.valid_date}) - \${code.participant_count}명</option>\`).join('');
                 } catch (error) {
                     console.error('Error loading codes:', error);
+                }
+            }
+
+            async function assignTeamsRandomly() {
+                const code = document.getElementById('assignCodeSelect').value;
+                
+                if (!code) {
+                    alert('코드를 선택해주세요.');
+                    return;
+                }
+
+                if (!confirm(\`코드 '\${code}'의 참가자들을 6개 팀에 랜덤 배정하시겠습니까?\\n\\n⚠️ 이미 배정된 참가자는 제외되고, 미배정 참가자만 배정됩니다.\`)) {
+                    return;
+                }
+
+                const resultDiv = document.getElementById('assignResult');
+                resultDiv.innerHTML = '<div class="text-center"><i class="fas fa-spinner fa-spin text-indigo-600 text-2xl"></i><p class="mt-2 text-gray-600">팀 배정 중...</p></div>';
+
+                try {
+                    const response = await axios.post('/api/admin/assign-teams', {
+                        code,
+                        adminPassword: ADMIN_PASSWORD
+                    });
+
+                    if (response.data.success) {
+                        resultDiv.innerHTML = \`
+                            <div class="bg-green-50 border-2 border-green-500 rounded-lg p-4">
+                                <i class="fas fa-check-circle text-green-600 text-2xl mb-2"></i>
+                                <p class="text-green-800 font-semibold">\${response.data.message}</p>
+                            </div>
+                        \`;
+                        loadStats();
+                        loadCodes();
+                        setTimeout(() => {
+                            resultDiv.innerHTML = '';
+                        }, 5000);
+                    }
+                } catch (error) {
+                    resultDiv.innerHTML = \`
+                        <div class="bg-red-50 border-2 border-red-500 rounded-lg p-4">
+                            <i class="fas fa-exclamation-circle text-red-600 text-2xl mb-2"></i>
+                            <p class="text-red-800 font-semibold">\${error.response?.data?.message || '팀 배정 실패'}</p>
+                        </div>
+                    \`;
                 }
             }
 
