@@ -1,21 +1,154 @@
-```txt
-npm install
-npm run dev
+# 팀 빌딩 시스템 (Team Building System)
+
+## 프로젝트 개요
+AI 툴을 활용한 자동 팀 빌딩 웹 애플리케이션입니다. QR 코드 스캔, 설문조사, 성비 균형을 고려한 자동 팀 배정 기능을 제공합니다.
+
+**주요 기능:**
+- 일일 입장 코드 검증 (QR 코드 스캔 대응)
+- 닉네임 부여 및 중복 확인
+- 5단계 성향 설문조사 (MBTI 스타일)
+- 6팀 자동 팀 빌딩 (성비 균형 알고리즘)
+- 실시간 팀 현황 확인
+- 관리자 대시보드 (코드 생성, 통계)
+
+## URLs
+- **로컬 개발**: http://localhost:3000
+- **샌드박스 테스트**: https://3000-ix3ng02r0id1zofj34rxz-b32ec7bb.sandbox.novita.ai
+
+## 완성된 기능
+
+### ✅ 1. 입장 코드 검증 시스템
+- **경로**: `/` (메인 페이지)
+- **API**: `POST /api/verify-code`
+- **기능**: 일일 입장 코드를 입력하여 접근 권한 확인
+- **테스트 코드**: `TEST2024` (오늘 날짜로 설정됨)
+
+### ✅ 2. 닉네임 부여 및 성별 선택
+- **API**: `POST /api/check-nickname`
+- **기능**: 
+  - 고유한 닉네임 입력 및 중복 확인
+  - 성별 선택 (남성/여성)
+
+### ✅ 3. 성향 설문조사
+- **API**: 
+  - `GET /api/survey-questions` (질문 목록 조회)
+  - `POST /api/register` (설문 응답 제출)
+- **설문 내용**:
+  1. 새로운 사람들과 쉽게 친해지는 편인가?
+  2. 계획을 세우고 실행하는 것을 좋아하는가?
+  3. 감정적으로 결정을 내리는 편인가?
+  4. 혼자 있는 시간이 필요한가?
+  5. 논리적이고 분석적으로 생각하는 편인가?
+- **응답 옵션**: 5단계 (매우 아니다 ~ 매우 그렇다)
+
+### ✅ 4. 6팀 자동 팀 빌딩 (성비 균형)
+- **알고리즘**:
+  1. 현재 각 팀의 성별 인원수 확인
+  2. 참가자의 성별에 따라 해당 성별이 가장 적은 팀 우선 선택
+  3. 동일한 경우 전체 인원이 적은 팀 선택
+  4. 자동으로 팀 번호 할당 (1~6팀)
+- **API**: `POST /api/register`
+
+### ✅ 5. 팀 현황 페이지
+- **경로**: `/teams`
+- **API**: 
+  - `GET /api/teams` (전체 팀 통계)
+  - `GET /api/team/:teamNumber` (특정 팀 멤버)
+- **기능**:
+  - 6개 팀의 인원수 확인
+  - 각 팀의 남성/여성 인원수
+  - 팀별 멤버 목록
+
+### ✅ 6. 관리자 페이지
+- **경로**: `/admin`
+- **API**:
+  - `POST /api/admin/generate-code` (일일 코드 생성)
+  - `GET /api/admin/stats` (통계 조회)
+- **기능**:
+  - 일일 입장 코드 생성 (날짜 지정 가능)
+  - 전체 참가자 통계 (남성/여성/전체)
+  - 팀별 인원 현황 (5초마다 자동 새로고침)
+- **관리자 비밀번호**: `admin2024`
+
+## 데이터 모델
+
+### D1 Database 테이블
+- **daily_codes**: 일일 입장 코드
+- **participants**: 참가자 정보 (닉네임, 성별, 팀 번호)
+- **survey_questions**: 설문 질문
+- **survey_responses**: 설문 응답
+- **teams**: 팀 구성 현황 (남성/여성/전체 인원수)
+
+## 사용 방법
+
+### 참가자 등록 프로세스
+1. 메인 페이지(`/`) 접속
+2. 입장 코드 입력 (예: TEST2024)
+3. 닉네임 입력 및 성별 선택
+4. 5개 설문 질문에 답변
+5. 자동으로 팀 배정 완료
+6. 팀 번호 확인 및 팀 현황 보기
+
+### 관리자 기능
+1. `/admin` 페이지 접속
+2. 현황 통계 확인 (실시간 업데이트)
+3. 새로운 일일 코드 생성
+4. 팀별 인원 현황 모니터링
+
+## 개발 및 배포
+
+### 로컬 개발
+```bash
+# 데이터베이스 초기화
+npm run db:migrate:local
+npm run db:seed
+
+# 빌드
+npm run build
+
+# 개발 서버 시작 (PM2)
+pm2 start ecosystem.config.cjs
+
+# 서버 상태 확인
+pm2 logs webapp --nostream
+curl http://localhost:3000
 ```
 
-```txt
-npm run deploy
+### Cloudflare Pages 배포
+```bash
+# 프로덕션 데이터베이스 생성
+npx wrangler d1 create webapp-production
+
+# wrangler.jsonc에 database_id 입력
+
+# 마이그레이션 적용
+npm run db:migrate:prod
+
+# 배포
+npm run deploy:prod
 ```
 
-[For generating/synchronizing types based on your Worker configuration run](https://developers.cloudflare.com/workers/wrangler/commands/#types):
+## 기술 스택
+- **Backend**: Hono (Edge Framework)
+- **Database**: Cloudflare D1 (SQLite)
+- **Frontend**: Vanilla JS + TailwindCSS + FontAwesome
+- **Deployment**: Cloudflare Pages
+- **Process Manager**: PM2 (개발 환경)
 
-```txt
-npm run cf-typegen
-```
+## 배포 상태
+- ✅ 로컬 개발 환경 구축 완료
+- ✅ 샌드박스 테스트 서버 구동 중
+- ⏳ Cloudflare Pages 프로덕션 배포 대기
 
-Pass the `CloudflareBindings` as generics when instantiation `Hono`:
+## 추천 개선 사항
+1. **QR 코드 스캔 기능**: 웹캠 API를 활용한 실제 QR 코드 스캔 구현
+2. **팀 분석**: 설문 응답 데이터 기반 팀 매칭 최적화
+3. **알림 기능**: 팀 배정 완료 시 알림 또는 이메일 발송
+4. **팀 채팅**: 팀원 간 실시간 채팅 기능
+5. **통계 대시보드**: Chart.js를 활용한 시각화
+6. **인증 강화**: 관리자 JWT 인증 또는 OAuth 적용
+7. **다국어 지원**: i18n을 활용한 영어/한국어 지원
+8. **모바일 최적화**: PWA 구현으로 앱처럼 사용
 
-```ts
-// src/index.ts
-const app = new Hono<{ Bindings: CloudflareBindings }>()
-```
+## 마지막 업데이트
+2025-10-31
