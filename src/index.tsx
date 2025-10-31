@@ -204,7 +204,7 @@ app.post('/api/admin/generate-code', async (c) => {
     const { code, validDate, adminPassword } = await c.req.json()
     
     // 간단한 관리자 비밀번호 검증 (실제 환경에서는 더 강력한 인증 필요)
-    if (adminPassword !== 'admin2024') {
+    if (adminPassword !== 'qwer1234') {
       return c.json({ success: false, message: '관리자 권한이 없습니다.' }, 403)
     }
 
@@ -239,7 +239,7 @@ app.post('/api/admin/toggle-code', async (c) => {
   try {
     const { code, adminPassword } = await c.req.json()
     
-    if (adminPassword !== 'admin2024') {
+    if (adminPassword !== 'qwer1234') {
       return c.json({ success: false, message: '관리자 권한이 없습니다.' }, 403)
     }
 
@@ -279,7 +279,7 @@ app.post('/api/admin/delete-code', async (c) => {
   try {
     const { code, adminPassword } = await c.req.json()
     
-    if (adminPassword !== 'admin2024') {
+    if (adminPassword !== 'qwer1234') {
       return c.json({ success: false, message: '관리자 권한이 없습니다.' }, 403)
     }
 
@@ -788,12 +788,46 @@ app.get('/admin', (c) => {
         <link href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.4.0/css/all.min.css" rel="stylesheet">
     </head>
     <body class="bg-gradient-to-br from-gray-50 to-gray-100 min-h-screen">
-        <div class="container mx-auto px-4 py-8">
-            <div class="max-w-4xl mx-auto">
+        <!-- 로그인 화면 -->
+        <div id="loginScreen" class="container mx-auto px-4 py-8 flex items-center justify-center min-h-screen">
+            <div class="max-w-md w-full bg-white rounded-2xl shadow-xl p-8">
                 <div class="text-center mb-8">
-                    <h1 class="text-4xl font-bold text-gray-800 mb-2">
+                    <i class="fas fa-lock text-indigo-600 text-6xl mb-4"></i>
+                    <h1 class="text-3xl font-bold text-gray-800 mb-2">관리자 인증</h1>
+                    <p class="text-gray-600">관리자 페이지 접근을 위해 비밀번호를 입력하세요</p>
+                </div>
+                <div class="mb-6">
+                    <label class="block text-gray-700 font-semibold mb-2">
+                        <i class="fas fa-key mr-2"></i>관리자 비밀번호
+                    </label>
+                    <input type="password" id="adminLoginPassword" 
+                           class="w-full px-4 py-3 border-2 border-gray-300 rounded-lg focus:border-indigo-500 focus:outline-none" 
+                           placeholder="비밀번호를 입력하세요"
+                           onkeypress="if(event.key === 'Enter') adminLogin()">
+                </div>
+                <button onclick="adminLogin()" 
+                        class="w-full bg-indigo-600 text-white py-3 rounded-lg font-semibold hover:bg-indigo-700 transition duration-200">
+                    <i class="fas fa-sign-in-alt mr-2"></i>로그인
+                </button>
+                <div class="text-center mt-6">
+                    <a href="/" class="text-gray-600 hover:text-indigo-600 text-sm">
+                        <i class="fas fa-home mr-1"></i>홈으로 돌아가기
+                    </a>
+                </div>
+            </div>
+        </div>
+
+        <!-- 관리자 페이지 (로그인 후 표시) -->
+        <div id="adminContent" class="container mx-auto px-4 py-8 hidden">
+            <div class="max-w-4xl mx-auto">
+                <div class="flex items-center justify-between mb-8">
+                    <h1 class="text-4xl font-bold text-gray-800">
                         <i class="fas fa-cog text-indigo-600 mr-2"></i>관리자 페이지
                     </h1>
+                    <button onclick="adminLogout()" 
+                            class="bg-red-500 text-white px-4 py-2 rounded-lg hover:bg-red-600 transition duration-200">
+                        <i class="fas fa-sign-out-alt mr-2"></i>로그아웃
+                    </button>
                 </div>
 
                 <!-- 통계 -->
@@ -829,15 +863,12 @@ app.get('/admin', (c) => {
                             아래 '입장 코드별 현황'에서 활성화 버튼을 클릭하여 사용 시작하세요.
                         </p>
                     </div>
-                    <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
                         <input type="text" id="newCode" 
                                class="px-4 py-3 border-2 border-gray-300 rounded-lg focus:border-indigo-500 focus:outline-none" 
                                placeholder="코드 (예: 0000, 1234)">
                         <input type="date" id="validDate" 
                                class="px-4 py-3 border-2 border-gray-300 rounded-lg focus:border-indigo-500 focus:outline-none">
-                        <input type="password" id="adminPassword" 
-                               class="px-4 py-3 border-2 border-gray-300 rounded-lg focus:border-indigo-500 focus:outline-none" 
-                               placeholder="관리자 비밀번호">
                     </div>
                     <button onclick="generateCode()" 
                             class="w-full bg-indigo-600 text-white py-3 rounded-lg font-semibold hover:bg-indigo-700 transition duration-200">
@@ -881,8 +912,57 @@ app.get('/admin', (c) => {
 
         <script src="https://cdn.jsdelivr.net/npm/axios@1.6.0/dist/axios.min.js"></script>
         <script>
-            // Set today's date as default
-            document.getElementById('validDate').valueAsDate = new Date();
+            const ADMIN_PASSWORD = 'qwer1234';
+            let adminToken = sessionStorage.getItem('adminToken');
+
+            // 페이지 로드 시 인증 확인
+            if (adminToken === ADMIN_PASSWORD) {
+                showAdminContent();
+            } else {
+                showLoginScreen();
+            }
+
+            function showLoginScreen() {
+                document.getElementById('loginScreen').classList.remove('hidden');
+                document.getElementById('adminContent').classList.add('hidden');
+            }
+
+            function showAdminContent() {
+                document.getElementById('loginScreen').classList.add('hidden');
+                document.getElementById('adminContent').classList.remove('hidden');
+                initializeAdminPage();
+            }
+
+            function adminLogin() {
+                const password = document.getElementById('adminLoginPassword').value;
+                if (password === ADMIN_PASSWORD) {
+                    sessionStorage.setItem('adminToken', password);
+                    adminToken = password;
+                    showAdminContent();
+                } else {
+                    alert('비밀번호가 올바르지 않습니다.');
+                    document.getElementById('adminLoginPassword').value = '';
+                }
+            }
+
+            function adminLogout() {
+                if (confirm('로그아웃 하시겠습니까?')) {
+                    sessionStorage.removeItem('adminToken');
+                    adminToken = null;
+                    showLoginScreen();
+                }
+            }
+
+            function initializeAdminPage() {
+                // Set today's date as default
+                document.getElementById('validDate').valueAsDate = new Date();
+                loadStats();
+                loadCodes();
+                setInterval(() => {
+                    loadStats();
+                    loadCodes();
+                }, 5000);
+            }
 
             async function loadStats() {
                 try {
@@ -973,13 +1053,14 @@ app.get('/admin', (c) => {
             }
 
             async function toggleCode(code) {
-                const password = prompt('관리자 비밀번호를 입력하세요:');
-                if (!password) return;
+                if (!confirm(\`코드 '\${code}'의 상태를 변경하시겠습니까?\`)) {
+                    return;
+                }
 
                 try {
                     const response = await axios.post('/api/admin/toggle-code', {
                         code,
-                        adminPassword: password
+                        adminPassword: ADMIN_PASSWORD
                     });
 
                     if (response.data.success) {
@@ -996,13 +1077,10 @@ app.get('/admin', (c) => {
                     return;
                 }
 
-                const password = prompt('관리자 비밀번호를 입력하세요:');
-                if (!password) return;
-
                 try {
                     const response = await axios.post('/api/admin/delete-code', {
                         code,
-                        adminPassword: password
+                        adminPassword: ADMIN_PASSWORD
                     });
 
                     if (response.data.success) {
@@ -1110,10 +1188,9 @@ app.get('/admin', (c) => {
             async function generateCode() {
                 const code = document.getElementById('newCode').value.trim();
                 const validDate = document.getElementById('validDate').value;
-                const adminPassword = document.getElementById('adminPassword').value;
 
-                if (!code || !validDate || !adminPassword) {
-                    alert('모든 필드를 입력해주세요.');
+                if (!code || !validDate) {
+                    alert('코드와 날짜를 입력해주세요.');
                     return;
                 }
 
@@ -1121,26 +1198,18 @@ app.get('/admin', (c) => {
                     const response = await axios.post('/api/admin/generate-code', {
                         code,
                         validDate,
-                        adminPassword
+                        adminPassword: ADMIN_PASSWORD
                     });
 
                     if (response.data.success) {
                         alert(\`일일 코드가 생성되었습니다!\\n코드: \${code}\\n날짜: \${validDate}\`);
                         document.getElementById('newCode').value = '';
-                        document.getElementById('adminPassword').value = '';
                         loadCodes(); // 코드 목록 새로고침
                     }
                 } catch (error) {
                     alert(error.response?.data?.message || '코드 생성 실패');
                 }
             }
-
-            loadStats();
-            loadCodes();
-            setInterval(() => {
-                loadStats();
-                loadCodes();
-            }, 5000); // 5초마다 통계 새로고침
         </script>
     </body>
     </html>
