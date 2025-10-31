@@ -17,4 +17,4 @@ INSERT OR IGNORE INTO teams (team_number, male_count, female_count, total_count)
 
 -- Insert Today's Access Code (테스트용 오늘 날짜 코드)
 INSERT OR IGNORE INTO daily_codes (code, valid_date, is_active) 
-VALUES ('TEST2024', date('now'), 1);
+VALUES ('0000', date('now'), 1);
