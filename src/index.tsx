@@ -595,21 +595,17 @@ app.post('/api/admin/assign-teams', async (c) => {
       teamSizeLimits[t] = t <= extraMembers ? baseSize + 1 : baseSize
     }
 
-    // 성비 균형 체크 함수 (남성이 여성보다 2명 이상 많으면 안됨)
+    // 성비 균형 체크 함수 (남성이 여성보다 2명 이상 많으면 안됨, 여성이 많은 것은 허용)
     const checkGenderBalance = (team: any[], newPerson: any) => {
       const maleCount = team.filter((p: any) => p.gender === 'male').length + (newPerson.gender === 'male' ? 1 : 0)
       const femaleCount = team.filter((p: any) => p.gender === 'female').length + (newPerson.gender === 'female' ? 1 : 0)
       
-      // 남성이 여성보다 2명 이상 많으면 false
+      // 남성이 여성보다 2명 이상 많으면 false (차단)
       if (maleCount - femaleCount >= 2) {
         return false
       }
       
-      // 여성이 남성보다 2명 이상 많아도 false (반대도 체크)
-      if (femaleCount - maleCount >= 2) {
-        return false
-      }
-      
+      // 여성이 많은 것은 허용 (제약 없음)
       return true
     }
 
