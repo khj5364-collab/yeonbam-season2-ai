@@ -358,7 +358,54 @@ app.post('/api/admin/delete-code', async (c) => {
   }
 })
 
-// 8. 관리자 - 통계 조회 API
+// 8. 관리자 - 팀 설정 조회 API
+app.get('/api/admin/team-settings', async (c) => {
+  try {
+    const settings = await c.env.DB.prepare(`
+      SELECT max_team_size FROM team_settings WHERE id = 1
+    `).first()
+
+    return c.json({ 
+      success: true, 
+      maxTeamSize: settings?.max_team_size || 8 
+    })
+  } catch (error) {
+    console.error('Error fetching team settings:', error)
+    return c.json({ success: false, message: '서버 오류가 발생했습니다.' }, 500)
+  }
+})
+
+// 8-1. 관리자 - 팀 설정 업데이트 API
+app.post('/api/admin/team-settings', async (c) => {
+  try {
+    const { maxTeamSize, adminPassword } = await c.req.json()
+    
+    if (adminPassword !== 'qwer1234') {
+      return c.json({ success: false, message: '관리자 권한이 없습니다.' }, 403)
+    }
+
+    if (![6, 7, 8].includes(maxTeamSize)) {
+      return c.json({ success: false, message: '팀당 인원은 6, 7, 8명 중 선택해주세요.' }, 400)
+    }
+
+    await c.env.DB.prepare(`
+      UPDATE team_settings 
+      SET max_team_size = ?, updated_at = CURRENT_TIMESTAMP
+      WHERE id = 1
+    `).bind(maxTeamSize).run()
+
+    return c.json({ 
+      success: true, 
+      message: `팀당 최대 인원이 ${maxTeamSize}명으로 설정되었습니다.`,
+      maxTeamSize 
+    })
+  } catch (error) {
+    console.error('Error updating team settings:', error)
+    return c.json({ success: false, message: '서버 오류가 발생했습니다.' }, 500)
+  }
+})
+
+// 9. 관리자 - 통계 조회 API
 app.get('/api/admin/stats', async (c) => {
   try {
     const statsCode = c.req.query('statsCode') || '';
@@ -448,7 +495,7 @@ app.get('/api/admin/stats', async (c) => {
   }
 })
 
-// 8-1. 관리자 - 팀 랜덤 배정 API (모든 참가자 재배정)
+// 10. 관리자 - 팀 랜덤 배정 API (모든 참가자 재배정)
 app.post('/api/admin/assign-teams', async (c) => {
   try {
     const { code, adminPassword } = await c.req.json()
@@ -461,6 +508,12 @@ app.post('/api/admin/assign-teams', async (c) => {
       return c.json({ success: false, message: '코드를 입력해주세요.' }, 400)
     }
 
+    // 팀 설정 조회
+    const settings = await c.env.DB.prepare(`
+      SELECT max_team_size FROM team_settings WHERE id = 1
+    `).first()
+    const maxTeamSize = settings?.max_team_size || 8
+
     // 해당 코드의 모든 참가자 조회 (이전 팀 번호 포함)
     const { results: participants } = await c.env.DB.prepare(`
       SELECT id, nickname, gender, mbti, team_number as old_team_number
@@ -471,6 +524,15 @@ app.post('/api/admin/assign-teams', async (c) => {
 
     if (participants.length === 0) {
       return c.json({ success: false, message: '해당 코드로 등록된 참가자가 없습니다.' }, 400)
+    }
+
+    // 참가자 수 검증
+    const requiredTeams = Math.ceil(participants.length / maxTeamSize)
+    if (requiredTeams > 6) {
+      return c.json({ 
+        success: false, 
+        message: `참가자가 ${participants.length}명으로 팀당 ${maxTeamSize}명 기준 ${requiredTeams}개 팀이 필요합니다. 최대 6개 팀까지만 지원됩니다.` 
+      }, 400)
     }
 
     // 이전 팀별로 그룹화 (이전 팀원 추적용)
@@ -1304,6 +1366,39 @@ app.get('/admin', (c) => {
                     </div>
                 </div>
 
+                <!-- 팀 설정 -->
+                <div class="bg-white rounded-xl shadow-lg p-6 mb-6">
+                    <h2 class="text-2xl font-bold text-gray-800 mb-4">
+                        <i class="fas fa-cog mr-2"></i>팀 설정
+                    </h2>
+                    <div class="bg-blue-50 border-l-4 border-blue-500 p-4 mb-4">
+                        <p class="text-sm text-blue-800">
+                            <i class="fas fa-info-circle mr-2"></i>
+                            팀당 최대 인원을 설정합니다. 기본 설정은 8명(남4, 여4)입니다.
+                        </p>
+                    </div>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                        <div>
+                            <label class="block text-gray-700 font-semibold mb-2">
+                                <i class="fas fa-users mr-2"></i>팀당 최대 인원
+                            </label>
+                            <select id="maxTeamSizeSelect" 
+                                   class="w-full px-4 py-3 border-2 border-gray-300 rounded-lg focus:border-indigo-500 focus:outline-none">
+                                <option value="6">6명 (남3, 여3)</option>
+                                <option value="7">7명</option>
+                                <option value="8" selected>8명 (남4, 여4)</option>
+                            </select>
+                        </div>
+                        <div class="flex items-end">
+                            <button onclick="updateTeamSettings()" 
+                                    class="w-full bg-blue-600 text-white py-3 rounded-lg font-semibold hover:bg-blue-700 transition duration-200">
+                                <i class="fas fa-save mr-2"></i>설정 저장
+                            </button>
+                        </div>
+                    </div>
+                    <div id="teamSettingsResult" class="mt-4"></div>
+                </div>
+
                 <!-- 팀 랜덤 배정 -->
                 <div class="bg-white rounded-xl shadow-lg p-6 mb-6">
                     <h2 class="text-2xl font-bold text-gray-800 mb-4">
@@ -1313,7 +1408,7 @@ app.get('/admin', (c) => {
                         <p class="text-sm text-yellow-800">
                             <i class="fas fa-exclamation-triangle mr-2"></i>
                             <strong>주의:</strong> 선택한 코드의 <strong>모든 참가자</strong>를 6개 팀에 랜덤으로 <strong>재배정</strong>합니다.
-                            기존 팀 배정은 초기화되고, 성비 균형을 유지하며 새로 배정됩니다.
+                            기존 팀 배정은 초기화되고, MBTI 균형과 이전 팀원 겹침 최소화를 고려하여 새로 배정됩니다.
                         </p>
                     </div>
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
@@ -1408,12 +1503,55 @@ app.get('/admin', (c) => {
             function initializeAdminPage() {
                 // Set today's date as default
                 document.getElementById('validDate').valueAsDate = new Date();
+                loadTeamSettings();
                 loadStats();
                 loadCodes();
                 setInterval(() => {
                     loadStats();
                     loadCodes();
                 }, 5000);
+            }
+
+            async function loadTeamSettings() {
+                try {
+                    const response = await axios.get('/api/admin/team-settings');
+                    if (response.data.success) {
+                        document.getElementById('maxTeamSizeSelect').value = response.data.maxTeamSize;
+                    }
+                } catch (error) {
+                    console.error('Error loading team settings:', error);
+                }
+            }
+
+            async function updateTeamSettings() {
+                const maxTeamSize = parseInt(document.getElementById('maxTeamSizeSelect').value);
+                const resultDiv = document.getElementById('teamSettingsResult');
+
+                try {
+                    const response = await axios.post('/api/admin/team-settings', {
+                        maxTeamSize,
+                        adminPassword: ADMIN_PASSWORD
+                    });
+
+                    if (response.data.success) {
+                        resultDiv.innerHTML = \`
+                            <div class="bg-green-50 border-2 border-green-500 rounded-lg p-4">
+                                <i class="fas fa-check-circle text-green-600 text-xl mr-2"></i>
+                                <span class="text-green-800 font-semibold">\${response.data.message}</span>
+                            </div>
+                        \`;
+                        setTimeout(() => {
+                            resultDiv.innerHTML = '';
+                        }, 3000);
+                    }
+                } catch (error) {
+                    resultDiv.innerHTML = \`
+                        <div class="bg-red-50 border-2 border-red-500 rounded-lg p-4">
+                            <i class="fas fa-exclamation-circle text-red-600 text-xl mr-2"></i>
+                            <span class="text-red-800 font-semibold">\${error.response?.data?.message || '설정 저장 실패'}</span>
+                        </div>
+                    \`;
+                }
             }
 
             async function loadStats() {
