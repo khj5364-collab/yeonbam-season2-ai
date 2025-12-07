@@ -437,9 +437,9 @@ app.post('/api/admin/assign-teams', async (c) => {
       return c.json({ success: false, message: '코드를 입력해주세요.' }, 400)
     }
 
-    // 해당 코드의 모든 참가자 조회 (배정 여부 무관)
+    // 해당 코드의 모든 참가자 조회 (배정 여부 무관, MBTI 포함)
     const { results: participants } = await c.env.DB.prepare(`
-      SELECT id, nickname, gender 
+      SELECT id, nickname, gender, mbti 
       FROM participants 
       WHERE access_code = ?
       ORDER BY created_at
@@ -455,10 +455,6 @@ app.post('/api/admin/assign-teams', async (c) => {
       SET male_count = 0, female_count = 0, total_count = 0
     `).run()
 
-    // 성별로 분류
-    const males = participants.filter((p: any) => p.gender === 'male')
-    const females = participants.filter((p: any) => p.gender === 'female')
-
     // 랜덤 셔플 함수
     const shuffle = (array: any[]) => {
       const shuffled = [...array]
@@ -469,25 +465,49 @@ app.post('/api/admin/assign-teams', async (c) => {
       return shuffled
     }
 
-    // 성별로 셔플
-    const shuffledMales = shuffle(males)
-    const shuffledFemales = shuffle(females)
+    // 성별과 MBTI E/I로 분류
+    const maleE = participants.filter((p: any) => p.gender === 'male' && p.mbti?.toUpperCase().startsWith('E'))
+    const maleI = participants.filter((p: any) => p.gender === 'male' && p.mbti?.toUpperCase().startsWith('I'))
+    const femaleE = participants.filter((p: any) => p.gender === 'female' && p.mbti?.toUpperCase().startsWith('E'))
+    const femaleI = participants.filter((p: any) => p.gender === 'female' && p.mbti?.toUpperCase().startsWith('I'))
 
-    // 6팀에 번갈아가며 배정 (성비 균형)
+    // 각 그룹 셔플
+    const shuffledMaleE = shuffle(maleE)
+    const shuffledMaleI = shuffle(maleI)
+    const shuffledFemaleE = shuffle(femaleE)
+    const shuffledFemaleI = shuffle(femaleI)
+
+    // 6팀에 배정 (E와 I의 균형 고려)
     const teamAssignments: any = {
       1: [], 2: [], 3: [], 4: [], 5: [], 6: []
     }
 
-    // 남성 배정
-    shuffledMales.forEach((male: any, index: number) => {
+    // 각 팀의 I 카운트 추적
+    const teamICounts = { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0, 6: 0 }
+
+    // I 타입을 먼저 균등하게 배정 (I가 많지 않도록)
+    const allI = [...shuffledMaleI, ...shuffledFemaleI]
+    allI.forEach((person: any, index: number) => {
       const teamNumber = (index % 6) + 1
-      teamAssignments[teamNumber].push(male)
+      teamAssignments[teamNumber].push(person)
+      teamICounts[teamNumber as keyof typeof teamICounts]++
     })
 
-    // 여성 배정
-    shuffledFemales.forEach((female: any, index: number) => {
-      const teamNumber = (index % 6) + 1
-      teamAssignments[teamNumber].push(female)
+    // E 타입을 배정 (I가 적은 팀에 우선 배정)
+    const allE = [...shuffledMaleE, ...shuffledFemaleE]
+    allE.forEach((person: any) => {
+      // I가 가장 많은 팀을 찾아 E를 배정하여 균형 맞추기
+      let targetTeam = 1
+      let maxI = teamICounts[1]
+      
+      for (let t = 2; t <= 6; t++) {
+        if (teamICounts[t as keyof typeof teamICounts] > maxI) {
+          maxI = teamICounts[t as keyof typeof teamICounts]
+          targetTeam = t
+        }
+      }
+      
+      teamAssignments[targetTeam].push(person)
     })
 
     // 데이터베이스 업데이트 - 모든 참가자의 팀 번호 새로 배정
@@ -517,12 +537,18 @@ app.post('/api/admin/assign-teams', async (c) => {
       `).bind(maleCount, femaleCount, teamMembers.length, i).run()
     }
 
+    // E/I 통계
+    const eCount = participants.filter((p: any) => p.mbti?.toUpperCase().startsWith('E')).length
+    const iCount = participants.filter((p: any) => p.mbti?.toUpperCase().startsWith('I')).length
+    
     return c.json({ 
       success: true, 
-      message: `${participants.length}명의 참가자가 6개 팀에 랜덤 재배정되었습니다.`,
+      message: `${participants.length}명의 참가자가 6개 팀에 MBTI 균형을 고려하여 재배정되었습니다.`,
       assignedCount: participants.length,
-      maleCount: males.length,
-      femaleCount: females.length
+      maleCount: participants.filter((p: any) => p.gender === 'male').length,
+      femaleCount: participants.filter((p: any) => p.gender === 'female').length,
+      eCount: eCount,
+      iCount: iCount
     })
   } catch (error) {
     console.error('Error assigning teams:', error)
