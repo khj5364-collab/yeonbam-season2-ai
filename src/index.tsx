@@ -84,15 +84,20 @@ app.get('/api/survey-questions', async (c) => {
 // 4. 참가자 등록 및 팀 배정 API
 app.post('/api/register', async (c) => {
   try {
-    const { nickname, gender, accessCode, surveyResponses } = await c.req.json()
+    const { nickname, gender, accessCode, mbti } = await c.req.json()
 
     // 입력값 검증
-    if (!nickname || !gender || !accessCode || !surveyResponses) {
+    if (!nickname || !gender || !accessCode || !mbti) {
       return c.json({ success: false, message: '모든 정보를 입력해주세요.' }, 400)
     }
 
     if (!['male', 'female'].includes(gender)) {
       return c.json({ success: false, message: '성별 정보가 올바르지 않습니다.' }, 400)
+    }
+
+    // MBTI 유효성 검사
+    if (mbti.length !== 4 || !/^[A-Z]{4}$/.test(mbti)) {
+      return c.json({ success: false, message: 'MBTI 형식이 올바르지 않습니다.' }, 400)
     }
 
     // 닉네임 중복 체크
@@ -106,19 +111,11 @@ app.post('/api/register', async (c) => {
 
     // 참가자 등록 (팀 배정은 나중에 관리자가 수행)
     const insertResult = await c.env.DB.prepare(`
-      INSERT INTO participants (nickname, gender, access_code, team_number)
-      VALUES (?, ?, ?, NULL)
-    `).bind(nickname, gender, accessCode).run()
+      INSERT INTO participants (nickname, gender, access_code, team_number, mbti)
+      VALUES (?, ?, ?, NULL, ?)
+    `).bind(nickname, gender, accessCode, mbti).run()
 
     const participantId = insertResult.meta.last_row_id
-
-    // 설문 응답 저장
-    for (const response of surveyResponses) {
-      await c.env.DB.prepare(`
-        INSERT INTO survey_responses (participant_id, question_id, response_value)
-        VALUES (?, ?, ?)
-      `).bind(participantId, response.questionId, response.value).run()
-    }
 
     return c.json({ 
       success: true, 
@@ -692,7 +689,7 @@ app.get('/', (c) => {
                     </button>
                 </div>
 
-                <!-- 닉네임 및 성별 입력 -->
+                <!-- 닉네임, 성별, MBTI 입력 -->
                 <div id="step2" class="step hidden">
                     <div class="mb-6">
                         <label class="block text-gray-700 font-semibold mb-2">
@@ -719,26 +716,26 @@ app.get('/', (c) => {
                             </button>
                         </div>
                     </div>
-                    <button onclick="nextToSurvey()" 
-                            class="w-full bg-indigo-600 text-white py-3 rounded-lg font-semibold hover:bg-indigo-700 transition duration-200">
-                        <i class="fas fa-arrow-right mr-2"></i>다음
-                    </button>
-                </div>
-
-                <!-- 설문조사 -->
-                <div id="step3" class="step hidden">
-                    <div class="mb-4">
-                        <h2 class="text-xl font-bold text-gray-800 mb-2">
-                            <i class="fas fa-clipboard-list mr-2"></i>간단한 성향 테스트
-                        </h2>
-                        <p class="text-sm text-gray-600">각 질문에 대해 가장 가까운 답변을 선택해주세요</p>
+                    <div class="mb-6">
+                        <label class="block text-gray-700 font-semibold mb-2">
+                            <i class="fas fa-brain mr-2"></i>MBTI
+                        </label>
+                        <input type="text" id="mbti" 
+                               class="w-full px-4 py-3 border-2 border-gray-300 rounded-lg focus:border-indigo-500 focus:outline-none uppercase" 
+                               placeholder="예: ENFP, ISTJ" 
+                               maxlength="4"
+                               oninput="this.value = this.value.toUpperCase()">
+                        <p class="text-xs text-gray-500 mt-1">
+                            <i class="fas fa-info-circle mr-1"></i>4자리 MBTI 유형을 입력하세요
+                        </p>
                     </div>
-                    <div id="surveyQuestions" class="space-y-6 mb-6"></div>
                     <button onclick="submitRegistration()" 
                             class="w-full bg-indigo-600 text-white py-3 rounded-lg font-semibold hover:bg-indigo-700 transition duration-200">
                         <i class="fas fa-check mr-2"></i>등록 완료
                     </button>
                 </div>
+
+
 
                 <!-- 완료 (신규 입장자) -->
                 <div id="step4-new" class="step hidden text-center">
@@ -863,8 +860,9 @@ app.get('/', (c) => {
                 event.target.closest('.gender-btn').classList.add('border-indigo-500', 'bg-indigo-50');
             }
 
-            async function nextToSurvey() {
+            async function submitRegistration() {
                 const nickname = document.getElementById('nickname').value.trim();
+                const mbti = document.getElementById('mbti').value.trim().toUpperCase();
                 
                 if (!nickname) {
                     alert('닉네임을 입력해주세요.');
@@ -876,77 +874,23 @@ app.get('/', (c) => {
                     return;
                 }
 
-                try {
-                    const response = await axios.post('/api/check-nickname', { nickname });
-                    if (response.data.success) {
-                        await loadSurveyQuestions();
-                        showStep(3);
-                    }
-                } catch (error) {
-                    alert(error.response?.data?.message || '닉네임 확인 실패');
-                }
-            }
-
-            async function loadSurveyQuestions() {
-                try {
-                    const response = await axios.get('/api/survey-questions');
-                    questions = response.data.questions;
-                    
-                    const container = document.getElementById('surveyQuestions');
-                    container.innerHTML = questions.map((q, index) => \`
-                        <div class="bg-gray-50 rounded-lg p-4">
-                            <p class="font-semibold text-gray-800 mb-3">\${index + 1}. \${q.question_text}</p>
-                            <div class="flex justify-between gap-2">
-                                \${[1, 2, 3, 4, 5].map(value => \`
-                                    <button onclick="selectAnswer(\${q.id}, \${value})" 
-                                            data-question="\${q.id}"
-                                            data-value="\${value}"
-                                            class="answer-btn flex-1 py-2 border-2 border-gray-300 rounded hover:border-indigo-500 transition duration-200 text-sm">
-                                        \${value}
-                                    </button>
-                                \`).join('')}
-                            </div>
-                            <div class="flex justify-between text-xs text-gray-500 mt-2">
-                                <span>매우 아니다</span>
-                                <span>매우 그렇다</span>
-                            </div>
-                        </div>
-                    \`).join('');
-                } catch (error) {
-                    alert('설문 질문을 불러오는데 실패했습니다.');
-                }
-            }
-
-            function selectAnswer(questionId, value) {
-                const buttons = document.querySelectorAll(\`[data-question="\${questionId}"]\`);
-                buttons.forEach(btn => {
-                    btn.classList.remove('border-indigo-500', 'bg-indigo-50', 'font-bold');
-                });
-                event.target.classList.add('border-indigo-500', 'bg-indigo-50', 'font-bold');
-            }
-
-            async function submitRegistration() {
-                const nickname = document.getElementById('nickname').value.trim();
-                
-                // 모든 질문에 답했는지 확인
-                const selectedAnswers = document.querySelectorAll('.answer-btn.bg-indigo-50');
-                if (selectedAnswers.length !== questions.length) {
-                    alert('모든 질문에 답해주세요.');
+                if (!mbti) {
+                    alert('MBTI를 입력해주세요.');
                     return;
                 }
 
-                // 설문 응답 수집
-                const surveyResponses = Array.from(selectedAnswers).map(btn => ({
-                    questionId: parseInt(btn.dataset.question),
-                    value: parseInt(btn.dataset.value)
-                }));
+                // MBTI 유효성 검사 (4자리 영문)
+                if (mbti.length !== 4 || !/^[A-Z]{4}$/.test(mbti)) {
+                    alert('올바른 MBTI 형식을 입력해주세요. (예: ENFP, ISTJ)');
+                    return;
+                }
 
                 try {
                     const response = await axios.post('/api/register', {
                         nickname,
                         gender: selectedGender,
                         accessCode: verifiedCode,
-                        surveyResponses
+                        mbti
                     });
 
                     if (response.data.success) {
