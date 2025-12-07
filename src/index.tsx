@@ -595,7 +595,25 @@ app.post('/api/admin/assign-teams', async (c) => {
       teamSizeLimits[t] = t <= extraMembers ? baseSize + 1 : baseSize
     }
 
-    // MBTI 우선순위 배정 함수 (이전 팀원 겹침 체크 + 인원 균등 분배)
+    // 성비 균형 체크 함수 (남성이 여성보다 2명 이상 많으면 안됨)
+    const checkGenderBalance = (team: any[], newPerson: any) => {
+      const maleCount = team.filter((p: any) => p.gender === 'male').length + (newPerson.gender === 'male' ? 1 : 0)
+      const femaleCount = team.filter((p: any) => p.gender === 'female').length + (newPerson.gender === 'female' ? 1 : 0)
+      
+      // 남성이 여성보다 2명 이상 많으면 false
+      if (maleCount - femaleCount >= 2) {
+        return false
+      }
+      
+      // 여성이 남성보다 2명 이상 많아도 false (반대도 체크)
+      if (femaleCount - maleCount >= 2) {
+        return false
+      }
+      
+      return true
+    }
+
+    // MBTI 우선순위 배정 함수 (성비 균형 + 이전 팀원 겹침 체크 + 인원 균등 분배)
     const assignToTeam = (person: any, preferMbtiBalance: boolean) => {
       const isIntrovert = person.mbti?.toUpperCase().startsWith('I')
       let bestTeam = 1
@@ -605,6 +623,11 @@ app.post('/api/admin/assign-teams', async (c) => {
         // 팀 인원이 이미 목표치에 도달했으면 제외
         if (teamAssignments[t].length >= teamSizeLimits[t]) {
           continue
+        }
+
+        // 성비 균형 체크
+        if (!checkGenderBalance(teamAssignments[t], person)) {
+          continue // 성비가 불균형하면 이 팀은 제외
         }
 
         // 이전 팀원이 2명 이상인지 확인
@@ -641,12 +664,25 @@ app.post('/api/admin/assign-teams', async (c) => {
 
       // 모든 적합한 팀이 없는 경우, 제약 완화하여 배정
       if (bestScore === -1) {
-        // 인원이 적고 이전 팀원도 적은 팀 찾기
+        // 성비만 고려하여 인원이 적은 팀 찾기
         let minSize = 100
         for (let t = 1; t <= 6; t++) {
-          if (teamAssignments[t].length < minSize) {
-            minSize = teamAssignments[t].length
-            bestTeam = t
+          if (teamAssignments[t].length < teamSizeLimits[t] && checkGenderBalance(teamAssignments[t], person)) {
+            if (teamAssignments[t].length < minSize) {
+              minSize = teamAssignments[t].length
+              bestTeam = t
+            }
+          }
+        }
+        
+        // 성비 제약도 만족하는 팀이 없으면, 최소 인원 팀에 강제 배정
+        if (minSize === 100) {
+          minSize = 100
+          for (let t = 1; t <= 6; t++) {
+            if (teamAssignments[t].length < minSize) {
+              minSize = teamAssignments[t].length
+              bestTeam = t
+            }
           }
         }
       }
