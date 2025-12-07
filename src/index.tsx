@@ -461,9 +461,9 @@ app.post('/api/admin/assign-teams', async (c) => {
       return c.json({ success: false, message: '코드를 입력해주세요.' }, 400)
     }
 
-    // 해당 코드의 모든 참가자 조회 (배정 여부 무관, MBTI 포함)
+    // 해당 코드의 모든 참가자 조회 (이전 팀 번호 포함)
     const { results: participants } = await c.env.DB.prepare(`
-      SELECT id, nickname, gender, mbti 
+      SELECT id, nickname, gender, mbti, team_number as old_team_number
       FROM participants 
       WHERE access_code = ?
       ORDER BY created_at
@@ -472,6 +472,17 @@ app.post('/api/admin/assign-teams', async (c) => {
     if (participants.length === 0) {
       return c.json({ success: false, message: '해당 코드로 등록된 참가자가 없습니다.' }, 400)
     }
+
+    // 이전 팀별로 그룹화 (이전 팀원 추적용)
+    const oldTeamGroups: any = {}
+    participants.forEach((p: any) => {
+      if (p.old_team_number) {
+        if (!oldTeamGroups[p.old_team_number]) {
+          oldTeamGroups[p.old_team_number] = []
+        }
+        oldTeamGroups[p.old_team_number].push(p.id)
+      }
+    })
 
     // 기존 팀 카운트 초기화
     await c.env.DB.prepare(`
@@ -489,19 +500,22 @@ app.post('/api/admin/assign-teams', async (c) => {
       return shuffled
     }
 
+    // 이전 팀원이 3명 이상 겹치는지 확인하는 함수
+    const countOldTeammates = (newTeamMembers: any[], personOldTeam: number) => {
+      if (!personOldTeam || !oldTeamGroups[personOldTeam]) return 0
+      const oldTeammateIds = oldTeamGroups[personOldTeam]
+      return newTeamMembers.filter((m: any) => 
+        oldTeammateIds.includes(m.id) && m.id !== newTeamMembers[newTeamMembers.length - 1]?.id
+      ).length
+    }
+
     // 성별과 MBTI E/I로 분류
-    const maleE = participants.filter((p: any) => p.gender === 'male' && p.mbti?.toUpperCase().startsWith('E'))
-    const maleI = participants.filter((p: any) => p.gender === 'male' && p.mbti?.toUpperCase().startsWith('I'))
-    const femaleE = participants.filter((p: any) => p.gender === 'female' && p.mbti?.toUpperCase().startsWith('E'))
-    const femaleI = participants.filter((p: any) => p.gender === 'female' && p.mbti?.toUpperCase().startsWith('I'))
+    const maleE = shuffle(participants.filter((p: any) => p.gender === 'male' && p.mbti?.toUpperCase().startsWith('E')))
+    const maleI = shuffle(participants.filter((p: any) => p.gender === 'male' && p.mbti?.toUpperCase().startsWith('I')))
+    const femaleE = shuffle(participants.filter((p: any) => p.gender === 'female' && p.mbti?.toUpperCase().startsWith('E')))
+    const femaleI = shuffle(participants.filter((p: any) => p.gender === 'female' && p.mbti?.toUpperCase().startsWith('I')))
 
-    // 각 그룹 셔플
-    const shuffledMaleE = shuffle(maleE)
-    const shuffledMaleI = shuffle(maleI)
-    const shuffledFemaleE = shuffle(femaleE)
-    const shuffledFemaleI = shuffle(femaleI)
-
-    // 6팀에 배정 (E와 I의 균형 고려)
+    // 6팀에 배정
     const teamAssignments: any = {
       1: [], 2: [], 3: [], 4: [], 5: [], 6: []
     }
@@ -509,29 +523,72 @@ app.post('/api/admin/assign-teams', async (c) => {
     // 각 팀의 I 카운트 추적
     const teamICounts = { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0, 6: 0 }
 
-    // I 타입을 먼저 균등하게 배정 (I가 많지 않도록)
-    const allI = [...shuffledMaleI, ...shuffledFemaleI]
-    allI.forEach((person: any, index: number) => {
-      const teamNumber = (index % 6) + 1
-      teamAssignments[teamNumber].push(person)
-      teamICounts[teamNumber as keyof typeof teamICounts]++
-    })
+    // MBTI 우선순위 배정 함수 (이전 팀원 겹침 체크 포함)
+    const assignToTeam = (person: any, preferMbtiBalance: boolean) => {
+      const isIntrovert = person.mbti?.toUpperCase().startsWith('I')
+      let bestTeam = 1
+      let bestScore = -1
 
-    // E 타입을 배정 (I가 적은 팀에 우선 배정)
-    const allE = [...shuffledMaleE, ...shuffledFemaleE]
-    allE.forEach((person: any) => {
-      // I가 가장 많은 팀을 찾아 E를 배정하여 균형 맞추기
-      let targetTeam = 1
-      let maxI = teamICounts[1]
-      
-      for (let t = 2; t <= 6; t++) {
-        if (teamICounts[t as keyof typeof teamICounts] > maxI) {
-          maxI = teamICounts[t as keyof typeof teamICounts]
-          targetTeam = t
+      for (let t = 1; t <= 6; t++) {
+        // 이전 팀원이 2명 이하인지 확인
+        const oldTeammateCount = countOldTeammates(teamAssignments[t], person.old_team_number)
+        if (oldTeammateCount >= 2) {
+          continue // 이미 2명 이상이면 이 팀은 제외
+        }
+
+        let score = 0
+
+        if (preferMbtiBalance) {
+          // MBTI 균형 고려
+          if (isIntrovert) {
+            // I는 I가 적은 팀 선호
+            score = 1000 - teamICounts[t as keyof typeof teamICounts]
+          } else {
+            // E는 I가 많은 팀 선호
+            score = teamICounts[t as keyof typeof teamICounts]
+          }
+        } else {
+          // MBTI 무시하고 균등 분배
+          score = 1000 - teamAssignments[t].length
+        }
+
+        // 이전 팀원이 적을수록 보너스 점수
+        score += (2 - oldTeammateCount) * 500
+
+        if (score > bestScore) {
+          bestScore = score
+          bestTeam = t
         }
       }
-      
-      teamAssignments[targetTeam].push(person)
+
+      // 모든 팀이 2명 이상인 경우, 가장 적은 팀에 배정
+      if (bestScore === -1) {
+        let minOldTeammates = 100
+        for (let t = 1; t <= 6; t++) {
+          const oldTeammateCount = countOldTeammates(teamAssignments[t], person.old_team_number)
+          if (oldTeammateCount < minOldTeammates) {
+            minOldTeammates = oldTeammateCount
+            bestTeam = t
+          }
+        }
+      }
+
+      teamAssignments[bestTeam].push(person)
+      if (isIntrovert) {
+        teamICounts[bestTeam as keyof typeof teamICounts]++
+      }
+    }
+
+    // I 타입 먼저 배정 (MBTI 균형 우선)
+    const allI = [...maleI, ...femaleI]
+    allI.forEach((person: any) => {
+      assignToTeam(person, true)
+    })
+
+    // E 타입 배정 (MBTI 균형 우선, 단 겹침 방지가 불가능하면 MBTI 무시)
+    const allE = [...maleE, ...femaleE]
+    allE.forEach((person: any) => {
+      assignToTeam(person, true)
     })
 
     // 데이터베이스 업데이트 - 모든 참가자의 팀 번호 새로 배정
