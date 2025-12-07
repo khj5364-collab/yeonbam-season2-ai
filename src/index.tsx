@@ -731,6 +731,7 @@ app.get('/api/admin/code/:code/participants', async (c) => {
         p.id,
         p.nickname,
         p.gender,
+        p.mbti,
         p.team_number,
         p.created_at
       FROM participants p
@@ -1789,21 +1790,32 @@ app.get('/admin', (c) => {
                         const members = teamGroups[teamNum];
                         const males = members.filter(m => m.gender === 'male').length;
                         const females = members.filter(m => m.gender === 'female').length;
+                        const eCount = members.filter(m => m.mbti?.toUpperCase().startsWith('E')).length;
+                        const iCount = members.filter(m => m.mbti?.toUpperCase().startsWith('I')).length;
                         
                         return \`
                             <div class="bg-gray-50 rounded-lg p-4 mb-3">
                                 <div class="flex items-center justify-between mb-3">
                                     <h4 class="font-bold text-lg text-indigo-600">Team \${teamNum}</h4>
-                                    <div class="text-sm text-gray-600">
-                                        <i class="fas fa-mars text-blue-500"></i> \${males}명
-                                        <i class="fas fa-venus text-pink-500 ml-2"></i> \${females}명
+                                    <div class="flex gap-3 text-sm text-gray-600">
+                                        <div>
+                                            <i class="fas fa-mars text-blue-500"></i> \${males}명
+                                            <i class="fas fa-venus text-pink-500 ml-1"></i> \${females}명
+                                        </div>
+                                        <div class="border-l pl-3">
+                                            <span class="font-semibold text-green-600">E</span> \${eCount}명
+                                            <span class="font-semibold text-purple-600 ml-1">I</span> \${iCount}명
+                                        </div>
                                     </div>
                                 </div>
                                 <div class="grid grid-cols-2 gap-2">
                                     \${members.map(m => \`
-                                        <div class="flex items-center gap-2 bg-white p-2 rounded">
-                                            <i class="fas fa-\${m.gender === 'male' ? 'mars text-blue-500' : 'venus text-pink-500'}"></i>
-                                            <span class="font-semibold">\${m.nickname}</span>
+                                        <div class="flex items-center justify-between gap-2 bg-white p-2 rounded">
+                                            <div class="flex items-center gap-2">
+                                                <i class="fas fa-\${m.gender === 'male' ? 'mars text-blue-500' : 'venus text-pink-500'}"></i>
+                                                <span class="font-semibold">\${m.nickname}</span>
+                                            </div>
+                                            <span class="text-xs font-mono bg-gray-100 px-2 py-1 rounded text-gray-600">\${m.mbti || 'N/A'}</span>
                                         </div>
                                     \`).join('')}
                                 </div>
