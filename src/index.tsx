@@ -84,7 +84,7 @@ app.get('/api/survey-questions', async (c) => {
 // 4. 참가자 등록 및 팀 배정 API
 app.post('/api/register', async (c) => {
   try {
-    const { nickname, gender, accessCode, mbti } = await c.req.json()
+    const { nickname, gender, accessCode, mbti, teamNumber } = await c.req.json()
 
     // 입력값 검증
     if (!nickname || !gender || !accessCode || !mbti) {
@@ -100,6 +100,13 @@ app.post('/api/register', async (c) => {
       return c.json({ success: false, message: 'MBTI 형식이 올바르지 않습니다.' }, 400)
     }
 
+    // 팀 번호 유효성 검사 (선택사항)
+    if (teamNumber !== null && teamNumber !== undefined) {
+      if (![1, 2, 3, 4, 5, 6].includes(teamNumber)) {
+        return c.json({ success: false, message: '팀 번호는 1~6 사이여야 합니다.' }, 400)
+      }
+    }
+
     // 닉네임 중복 체크
     const existingNickname = await c.env.DB.prepare(`
       SELECT id FROM participants WHERE nickname = ?
@@ -109,18 +116,35 @@ app.post('/api/register', async (c) => {
       return c.json({ success: false, message: '이미 사용중인 닉네임입니다.' }, 400)
     }
 
-    // 참가자 등록 (팀 배정은 나중에 관리자가 수행)
+    // 참가자 등록 (팀 번호를 직접 입력하거나 NULL)
+    const finalTeamNumber = teamNumber !== null && teamNumber !== undefined ? teamNumber : null
+    
     const insertResult = await c.env.DB.prepare(`
       INSERT INTO participants (nickname, gender, access_code, team_number, mbti)
-      VALUES (?, ?, ?, NULL, ?)
-    `).bind(nickname, gender, accessCode, mbti).run()
+      VALUES (?, ?, ?, ?, ?)
+    `).bind(nickname, gender, accessCode, finalTeamNumber, mbti).run()
 
     const participantId = insertResult.meta.last_row_id
 
+    // 팀이 배정된 경우 teams 테이블 업데이트
+    if (finalTeamNumber) {
+      const genderColumn = gender === 'male' ? 'male_count' : 'female_count'
+      await c.env.DB.prepare(`
+        UPDATE teams 
+        SET ${genderColumn} = ${genderColumn} + 1,
+            total_count = total_count + 1
+        WHERE team_number = ?
+      `).bind(finalTeamNumber).run()
+    }
+
+    const message = finalTeamNumber 
+      ? `등록이 완료되었습니다! Team ${finalTeamNumber}에 배정되었습니다.`
+      : '등록이 완료되었습니다! 관리자가 팀을 배정할 때까지 기다려주세요.'
+
     return c.json({ 
       success: true, 
-      message: '등록이 완료되었습니다! 관리자가 팀을 배정할 때까지 기다려주세요.', 
-      teamNumber: null,
+      message,
+      teamNumber: finalTeamNumber,
       participantId 
     })
   } catch (error) {
@@ -768,6 +792,24 @@ app.get('/', (c) => {
                             <i class="fas fa-info-circle mr-1"></i>4자리 MBTI 유형을 입력하세요
                         </p>
                     </div>
+                    <div class="mb-6">
+                        <label class="block text-gray-700 font-semibold mb-2">
+                            <i class="fas fa-users mr-2"></i>팀 번호
+                        </label>
+                        <select id="teamNumber" 
+                                class="w-full px-4 py-3 border-2 border-gray-300 rounded-lg focus:border-indigo-500 focus:outline-none">
+                            <option value="">팀을 선택하세요 (선택사항)</option>
+                            <option value="1">Team 1</option>
+                            <option value="2">Team 2</option>
+                            <option value="3">Team 3</option>
+                            <option value="4">Team 4</option>
+                            <option value="5">Team 5</option>
+                            <option value="6">Team 6</option>
+                        </select>
+                        <p class="text-xs text-gray-500 mt-1">
+                            <i class="fas fa-info-circle mr-1"></i>처음 입장 시 팀을 지정하거나, 나중에 관리자가 배정할 수 있습니다
+                        </p>
+                    </div>
                     <button onclick="submitRegistration()" 
                             class="w-full bg-indigo-600 text-white py-3 rounded-lg font-semibold hover:bg-indigo-700 transition duration-200">
                         <i class="fas fa-check mr-2"></i>등록 완료
@@ -780,11 +822,8 @@ app.get('/', (c) => {
                 <div id="step4-new" class="step hidden text-center">
                     <i class="fas fa-check-circle text-green-500 text-6xl mb-4"></i>
                     <h2 class="text-2xl font-bold text-gray-800 mb-4">등록 완료!</h2>
-                    <div class="bg-yellow-50 border-2 border-yellow-400 rounded-lg p-6 mb-6">
-                        <i class="fas fa-clock text-yellow-600 text-4xl mb-3"></i>
-                        <p class="text-gray-800 font-semibold mb-2">팀 배정 대기중</p>
-                        <p class="text-gray-600 text-sm">관리자가 팀을 배정할 때까지 기다려주세요.</p>
-                        <p class="text-gray-600 text-sm mt-2">배정 완료 후 재입장하면 팀 번호를 확인할 수 있습니다.</p>
+                    <div id="newUserTeamInfo" class="mb-6">
+                        <!-- 팀 정보 또는 대기 메시지가 여기 표시됨 -->
                     </div>
                     <a href="/" class="inline-block bg-indigo-600 text-white px-6 py-3 rounded-lg font-semibold hover:bg-indigo-700 transition duration-200">
                         <i class="fas fa-home mr-2"></i>홈으로
@@ -902,6 +941,7 @@ app.get('/', (c) => {
             async function submitRegistration() {
                 const nickname = document.getElementById('nickname').value.trim();
                 const mbti = document.getElementById('mbti').value.trim().toUpperCase();
+                const teamNumber = document.getElementById('teamNumber').value;
                 
                 if (!nickname) {
                     alert('닉네임을 입력해주세요.');
@@ -929,10 +969,37 @@ app.get('/', (c) => {
                         nickname,
                         gender: selectedGender,
                         accessCode: verifiedCode,
-                        mbti
+                        mbti,
+                        teamNumber: teamNumber ? parseInt(teamNumber) : null
                     });
 
                     if (response.data.success) {
+                        const teamInfoDiv = document.getElementById('newUserTeamInfo');
+                        
+                        if (response.data.teamNumber) {
+                            // 팀이 배정된 경우
+                            teamInfoDiv.innerHTML = \`
+                                <div class="bg-indigo-50 border-2 border-indigo-500 rounded-lg p-6">
+                                    <i class="fas fa-users text-indigo-600 text-4xl mb-3"></i>
+                                    <p class="text-gray-800 font-semibold mb-2">팀 배정 완료</p>
+                                    <div class="bg-white rounded-lg p-4 mt-3">
+                                        <p class="text-2xl font-bold text-indigo-600">Team \${response.data.teamNumber}</p>
+                                    </div>
+                                    <p class="text-gray-600 text-sm mt-3">재입장하면 팀원을 확인할 수 있습니다.</p>
+                                </div>
+                            \`;
+                        } else {
+                            // 팀이 배정되지 않은 경우
+                            teamInfoDiv.innerHTML = \`
+                                <div class="bg-yellow-50 border-2 border-yellow-400 rounded-lg p-6">
+                                    <i class="fas fa-clock text-yellow-600 text-4xl mb-3"></i>
+                                    <p class="text-gray-800 font-semibold mb-2">팀 배정 대기중</p>
+                                    <p class="text-gray-600 text-sm">관리자가 팀을 배정할 때까지 기다려주세요.</p>
+                                    <p class="text-gray-600 text-sm mt-2">배정 완료 후 재입장하면 팀 번호를 확인할 수 있습니다.</p>
+                                </div>
+                            \`;
+                        }
+                        
                         showStep('4-new');
                     }
                 } catch (error) {
