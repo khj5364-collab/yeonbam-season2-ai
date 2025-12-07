@@ -585,14 +585,29 @@ app.post('/api/admin/assign-teams', async (c) => {
     // 각 팀의 I 카운트 추적
     const teamICounts = { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0, 6: 0 }
 
-    // MBTI 우선순위 배정 함수 (이전 팀원 겹침 체크 포함)
+    // 팀당 목표 인원 계산 (균등 분배)
+    const baseSize = Math.floor(participants.length / 6)  // 기본 인원
+    const extraMembers = participants.length % 6          // 추가로 1명씩 들어갈 팀 수
+    const teamSizeLimits: any = {}
+    
+    for (let t = 1; t <= 6; t++) {
+      // 처음 extraMembers개 팀은 baseSize + 1명, 나머지는 baseSize명
+      teamSizeLimits[t] = t <= extraMembers ? baseSize + 1 : baseSize
+    }
+
+    // MBTI 우선순위 배정 함수 (이전 팀원 겹침 체크 + 인원 균등 분배)
     const assignToTeam = (person: any, preferMbtiBalance: boolean) => {
       const isIntrovert = person.mbti?.toUpperCase().startsWith('I')
       let bestTeam = 1
       let bestScore = -1
 
       for (let t = 1; t <= 6; t++) {
-        // 이전 팀원이 2명 이하인지 확인
+        // 팀 인원이 이미 목표치에 도달했으면 제외
+        if (teamAssignments[t].length >= teamSizeLimits[t]) {
+          continue
+        }
+
+        // 이전 팀원이 2명 이상인지 확인
         const oldTeammateCount = countOldTeammates(teamAssignments[t], person.old_team_number)
         if (oldTeammateCount >= 2) {
           continue // 이미 2명 이상이면 이 팀은 제외
@@ -600,18 +615,19 @@ app.post('/api/admin/assign-teams', async (c) => {
 
         let score = 0
 
+        // 인원 균등 분배 점수 (최우선)
+        const remainingSlots = teamSizeLimits[t] - teamAssignments[t].length
+        score += remainingSlots * 2000  // 빈 자리가 많을수록 높은 점수
+
         if (preferMbtiBalance) {
           // MBTI 균형 고려
           if (isIntrovert) {
             // I는 I가 적은 팀 선호
-            score = 1000 - teamICounts[t as keyof typeof teamICounts]
+            score += (1000 - teamICounts[t as keyof typeof teamICounts] * 100)
           } else {
             // E는 I가 많은 팀 선호
-            score = teamICounts[t as keyof typeof teamICounts]
+            score += (teamICounts[t as keyof typeof teamICounts] * 100)
           }
-        } else {
-          // MBTI 무시하고 균등 분배
-          score = 1000 - teamAssignments[t].length
         }
 
         // 이전 팀원이 적을수록 보너스 점수
@@ -623,13 +639,13 @@ app.post('/api/admin/assign-teams', async (c) => {
         }
       }
 
-      // 모든 팀이 2명 이상인 경우, 가장 적은 팀에 배정
+      // 모든 적합한 팀이 없는 경우, 제약 완화하여 배정
       if (bestScore === -1) {
-        let minOldTeammates = 100
+        // 인원이 적고 이전 팀원도 적은 팀 찾기
+        let minSize = 100
         for (let t = 1; t <= 6; t++) {
-          const oldTeammateCount = countOldTeammates(teamAssignments[t], person.old_team_number)
-          if (oldTeammateCount < minOldTeammates) {
-            minOldTeammates = oldTeammateCount
+          if (teamAssignments[t].length < minSize) {
+            minSize = teamAssignments[t].length
             bestTeam = t
           }
         }
