@@ -302,11 +302,20 @@ app.post('/api/admin/delete-code', async (c) => {
       SELECT COUNT(*) as count FROM participants WHERE access_code = ?
     `).bind(code).first()
 
+    // 참가자가 있으면 함께 삭제
     if (participantCount && participantCount.count > 0) {
-      return c.json({ 
-        success: false, 
-        message: `이 코드로 ${participantCount.count}명의 참가자가 등록되어 있어 삭제할 수 없습니다.` 
-      }, 400)
+      // 설문 응답 삭제 (있을 경우)
+      await c.env.DB.prepare(`
+        DELETE FROM survey_responses 
+        WHERE participant_id IN (
+          SELECT id FROM participants WHERE access_code = ?
+        )
+      `).bind(code).run()
+
+      // 참가자 삭제
+      await c.env.DB.prepare(`
+        DELETE FROM participants WHERE access_code = ?
+      `).bind(code).run()
     }
 
     // 코드 삭제
@@ -314,7 +323,11 @@ app.post('/api/admin/delete-code', async (c) => {
       DELETE FROM daily_codes WHERE code = ?
     `).bind(code).run()
 
-    return c.json({ success: true, message: '코드가 삭제되었습니다.', code })
+    const message = participantCount && participantCount.count > 0 
+      ? `코드 '${code}'와 ${participantCount.count}명의 참가자 정보가 삭제되었습니다.`
+      : `코드 '${code}'가 삭제되었습니다.`
+    
+    return c.json({ success: true, message, code, deletedParticipants: participantCount?.count || 0 })
   } catch (error) {
     console.error('Error deleting code:', error)
     return c.json({ success: false, message: '서버 오류가 발생했습니다.' }, 500)
@@ -1133,7 +1146,7 @@ app.get('/admin', (c) => {
                             <div><i class="fas fa-toggle-on text-green-500 mr-2"></i><strong>활성화:</strong> 참가자가 이 코드로 입장 가능</div>
                             <div><i class="fas fa-toggle-off text-orange-500 mr-2"></i><strong>비활성화:</strong> 참가자 입장 차단</div>
                             <div><i class="fas fa-eye text-indigo-600 mr-2"></i><strong>상세보기:</strong> 코드별 참가자 및 팀 구성 확인</div>
-                            <div><i class="fas fa-trash text-red-500 mr-2"></i><strong>삭제:</strong> 참가자가 없는 코드만 삭제 가능</div>
+                            <div><i class="fas fa-trash text-red-500 mr-2"></i><strong>삭제:</strong> 코드와 해당 코드의 모든 참가자 정보 삭제</div>
                         </div>
                     </div>
                     <div id="codesList" class="space-y-3">
@@ -1333,13 +1346,10 @@ app.get('/admin', (c) => {
                                             class="bg-indigo-600 text-white px-4 py-2 rounded-lg hover:bg-indigo-700 transition duration-200 text-sm font-semibold">
                                         <i class="fas fa-eye mr-1"></i>상세보기
                                     </button>
-                                    \${code.participant_count === 0 
-                                        ? \`<button onclick="deleteCode('\${code.code}')" 
-                                                class="bg-red-500 text-white px-4 py-2 rounded-lg hover:bg-red-600 transition duration-200 text-sm font-semibold">
-                                            <i class="fas fa-trash mr-1"></i>삭제
-                                        </button>\`
-                                        : ''
-                                    }
+                                    <button onclick="deleteCode('\${code.code}', \${code.participant_count})" 
+                                            class="bg-red-500 text-white px-4 py-2 rounded-lg hover:bg-red-600 transition duration-200 text-sm font-semibold">
+                                        <i class="fas fa-trash mr-1"></i>삭제
+                                    </button>
                                 </div>
                             </div>
                         </div>
@@ -1436,8 +1446,17 @@ app.get('/admin', (c) => {
                 }
             }
 
-            async function deleteCode(code) {
-                if (!confirm(\`코드 '\${code}'를 정말로 삭제하시겠습니까?\\n\\n⚠️ 이 작업은 되돌릴 수 없습니다.\`)) {
+            async function deleteCode(code, participantCount) {
+                let message = \`코드 '\${code}'\를 정말로 삭제하시겠습니까?\`;
+                
+                if (participantCount > 0) {
+                    message += \`\\n\\n⚠️ 경고: 이 코드에는 \${participantCount}명의 참가자가 등록되어 있습니다.\`;
+                    message += \`\\n코드를 삭제하면 모든 참가자 정보도 함께 삭제됩니다.\`;
+                }
+                
+                message += \`\\n\\n⚠️ 이 작업은 되돌릴 수 없습니다.\`;
+                
+                if (!confirm(message)) {
                     return;
                 }
 
@@ -1450,6 +1469,7 @@ app.get('/admin', (c) => {
                     if (response.data.success) {
                         alert(response.data.message);
                         loadCodes(); // 코드 목록 새로고침
+                        loadStats(); // 통계 새로고침
                     }
                 } catch (error) {
                     alert(error.response?.data?.message || '코드 삭제 실패');
