@@ -595,17 +595,22 @@ app.post('/api/admin/assign-teams', async (c) => {
       teamSizeLimits[t] = t <= extraMembers ? baseSize + 1 : baseSize
     }
 
-    // 성비 균형 체크 함수 (남성이 여성보다 2명 이상 많으면 안됨, 여성이 많은 것은 허용)
+    // 성비 균형 체크 함수
+    // 기본 팀 구성: 6명 (남3, 여3)
+    // 차단: 남4여2 (남성이 2명 이상 많음)
+    // 허용: 남3여3, 남2여4 (여성이 많은 것은 허용)
     const checkGenderBalance = (team: any[], newPerson: any) => {
       const maleCount = team.filter((p: any) => p.gender === 'male').length + (newPerson.gender === 'male' ? 1 : 0)
       const femaleCount = team.filter((p: any) => p.gender === 'female').length + (newPerson.gender === 'female' ? 1 : 0)
       
-      // 남성이 여성보다 2명 이상 많으면 false (차단)
+      // 남성이 여성보다 2명 이상 많으면 차단
+      // 예: 남4여2 ❌, 남5여3 ❌, 남3여2 ✅
       if (maleCount - femaleCount >= 2) {
         return false
       }
       
-      // 여성이 많은 것은 허용 (제약 없음)
+      // 여성이 많은 것은 허용
+      // 예: 남2여4 ✅, 남3여3 ✅
       return true
     }
 
@@ -660,7 +665,7 @@ app.post('/api/admin/assign-teams', async (c) => {
 
       // 모든 적합한 팀이 없는 경우, 제약 완화하여 배정
       if (bestScore === -1) {
-        // 성비만 고려하여 인원이 적은 팀 찾기
+        // 성비 제약은 반드시 지키면서 인원이 적은 팀 찾기
         let minSize = 100
         for (let t = 1; t <= 6; t++) {
           if (teamAssignments[t].length < teamSizeLimits[t] && checkGenderBalance(teamAssignments[t], person)) {
@@ -671,13 +676,14 @@ app.post('/api/admin/assign-teams', async (c) => {
           }
         }
         
-        // 성비 제약도 만족하는 팀이 없으면, 최소 인원 팀에 강제 배정
+        // 성비 제약을 만족하는 팀이 없으면, 이전 팀원 겹침만 무시하고 재시도
         if (minSize === 100) {
-          minSize = 100
           for (let t = 1; t <= 6; t++) {
-            if (teamAssignments[t].length < minSize) {
+            // 팀 크기와 성비 제약은 반드시 지킴
+            if (teamAssignments[t].length < teamSizeLimits[t] && checkGenderBalance(teamAssignments[t], person)) {
               minSize = teamAssignments[t].length
               bestTeam = t
+              break
             }
           }
         }
@@ -689,17 +695,20 @@ app.post('/api/admin/assign-teams', async (c) => {
       }
     }
 
-    // I 타입 먼저 배정 (MBTI 균형 우선)
-    const allI = [...maleI, ...femaleI]
-    allI.forEach((person: any) => {
-      assignToTeam(person, true)
-    })
+    // 성비 균형을 위해 성별 교차 배정
+    // I 타입 먼저, 남/여 교차로 배정
+    const maxILength = Math.max(maleI.length, femaleI.length)
+    for (let i = 0; i < maxILength; i++) {
+      if (i < maleI.length) assignToTeam(maleI[i], true)
+      if (i < femaleI.length) assignToTeam(femaleI[i], true)
+    }
 
-    // E 타입 배정 (MBTI 균형 우선, 단 겹침 방지가 불가능하면 MBTI 무시)
-    const allE = [...maleE, ...femaleE]
-    allE.forEach((person: any) => {
-      assignToTeam(person, true)
-    })
+    // E 타입도 남/여 교차로 배정
+    const maxELength = Math.max(maleE.length, femaleE.length)
+    for (let i = 0; i < maxELength; i++) {
+      if (i < maleE.length) assignToTeam(maleE[i], true)
+      if (i < femaleE.length) assignToTeam(femaleE[i], true)
+    }
 
     // 데이터베이스 업데이트 - 모든 참가자의 팀 번호 새로 배정
     for (const teamNumber in teamAssignments) {
