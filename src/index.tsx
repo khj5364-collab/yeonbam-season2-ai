@@ -882,6 +882,31 @@ app.get('/messages', (c) => {
         <link href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.4.0/css/all.min.css" rel="stylesheet">
     </head>
     <body class="bg-gradient-to-br from-purple-50 to-pink-100 min-h-screen">
+        <!-- 상단 네비게이션 -->
+        <nav class="bg-white shadow-md mb-6">
+            <div class="container mx-auto px-4">
+                <div class="flex items-center justify-between py-4">
+                    <a href="/" class="text-xl font-bold text-indigo-600">
+                        <i class="fas fa-users mr-2"></i>YEONBAM SEASON 2
+                    </a>
+                    <div class="flex space-x-4">
+                        <a href="/teams" class="text-gray-700 hover:text-indigo-600 transition">
+                            <i class="fas fa-users mr-1"></i>팀 현황
+                        </a>
+                        <a href="/messages" class="text-purple-600 font-semibold">
+                            <i class="fas fa-envelope mr-1"></i>익명 쪽지
+                        </a>
+                        <a href="/vote" class="text-gray-700 hover:text-orange-600 transition">
+                            <i class="fas fa-star mr-1"></i>호감도 투표
+                        </a>
+                        <a href="/admin" class="text-gray-700 hover:text-gray-900 transition">
+                            <i class="fas fa-cog mr-1"></i>관리자
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </nav>
+        
         <!-- 로그인 화면 -->
         <div id="loginScreen" class="container mx-auto px-4 py-8">
             <div class="max-w-md mx-auto">
@@ -1174,6 +1199,31 @@ app.get('/vote', (c) => {
         <link href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.4.0/css/all.min.css" rel="stylesheet">
     </head>
     <body class="bg-gradient-to-br from-yellow-50 to-orange-100 min-h-screen">
+        <!-- 상단 네비게이션 -->
+        <nav class="bg-white shadow-md mb-6">
+            <div class="container mx-auto px-4">
+                <div class="flex items-center justify-between py-4">
+                    <a href="/" class="text-xl font-bold text-indigo-600">
+                        <i class="fas fa-users mr-2"></i>YEONBAM SEASON 2
+                    </a>
+                    <div class="flex space-x-4">
+                        <a href="/teams" class="text-gray-700 hover:text-indigo-600 transition">
+                            <i class="fas fa-users mr-1"></i>팀 현황
+                        </a>
+                        <a href="/messages" class="text-gray-700 hover:text-purple-600 transition">
+                            <i class="fas fa-envelope mr-1"></i>익명 쪽지
+                        </a>
+                        <a href="/vote" class="text-orange-600 font-semibold">
+                            <i class="fas fa-star mr-1"></i>호감도 투표
+                        </a>
+                        <a href="/admin" class="text-gray-700 hover:text-gray-900 transition">
+                            <i class="fas fa-cog mr-1"></i>관리자
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </nav>
+        
         <!-- 로그인 화면 -->
         <div id="loginScreen" class="container mx-auto px-4 py-8">
             <div class="max-w-md mx-auto">
@@ -1517,6 +1567,31 @@ app.get('/', (c) => {
         <link href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.4.0/css/all.min.css" rel="stylesheet">
     </head>
     <body class="bg-gradient-to-br from-blue-50 to-indigo-100 min-h-screen">
+        <!-- 상단 네비게이션 -->
+        <nav class="bg-white shadow-md mb-6">
+            <div class="container mx-auto px-4">
+                <div class="flex items-center justify-between py-4">
+                    <a href="/" class="text-xl font-bold text-indigo-600">
+                        <i class="fas fa-users mr-2"></i>YEONBAM SEASON 2
+                    </a>
+                    <div class="flex space-x-4">
+                        <a href="/teams" class="text-gray-700 hover:text-indigo-600 transition">
+                            <i class="fas fa-users mr-1"></i>팀 현황
+                        </a>
+                        <a href="/messages" class="text-gray-700 hover:text-purple-600 transition">
+                            <i class="fas fa-envelope mr-1"></i>익명 쪽지
+                        </a>
+                        <a href="/vote" class="text-gray-700 hover:text-orange-600 transition">
+                            <i class="fas fa-star mr-1"></i>호감도 투표
+                        </a>
+                        <a href="/admin" class="text-gray-700 hover:text-gray-900 transition">
+                            <i class="fas fa-cog mr-1"></i>관리자
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </nav>
+        
         <div class="container mx-auto px-4 py-8">
             <div class="max-w-md mx-auto bg-white rounded-2xl shadow-xl p-8">
                 <div class="text-center mb-8">
@@ -1668,9 +1743,21 @@ app.get('/', (c) => {
                     <div id="newUserTeamInfo" class="mb-6">
                         <!-- 팀 정보 또는 대기 메시지가 여기 표시됨 -->
                     </div>
-                    <a href="/" class="inline-block bg-indigo-600 text-white px-6 py-3 rounded-lg font-semibold hover:bg-indigo-700 transition duration-200">
-                        <i class="fas fa-home mr-2"></i>홈으로
-                    </a>
+                    
+                    <div class="grid grid-cols-1 gap-3 mb-4">
+                        <a href="/teams" class="bg-indigo-600 text-white px-6 py-3 rounded-lg font-semibold hover:bg-indigo-700 transition duration-200">
+                            <i class="fas fa-users mr-2"></i>전체 팀 보기
+                        </a>
+                        <a href="/messages" class="bg-purple-600 text-white px-6 py-3 rounded-lg font-semibold hover:bg-purple-700 transition duration-200">
+                            <i class="fas fa-envelope mr-2"></i>익명 쪽지 보내기
+                        </a>
+                        <a href="/vote" class="bg-orange-600 text-white px-6 py-3 rounded-lg font-semibold hover:bg-orange-700 transition duration-200">
+                            <i class="fas fa-star mr-2"></i>호감도 투표하기
+                        </a>
+                        <a href="/" class="bg-gray-300 text-gray-700 px-6 py-3 rounded-lg font-semibold hover:bg-gray-400 transition duration-200">
+                            <i class="fas fa-home mr-2"></i>홈으로
+                        </a>
+                    </div>
                 </div>
 
                 <!-- 완료 (재입장자) -->
@@ -1680,9 +1767,21 @@ app.get('/', (c) => {
                     <div id="reentryTeamInfo" class="bg-indigo-50 rounded-lg p-6 mb-6">
                         <!-- 팀 정보가 여기 표시됨 -->
                     </div>
-                    <a href="/teams" class="inline-block bg-indigo-600 text-white px-6 py-3 rounded-lg font-semibold hover:bg-indigo-700 transition duration-200">
-                        <i class="fas fa-users mr-2"></i>전체 팀 보기
-                    </a>
+                    
+                    <div class="grid grid-cols-1 gap-3 mb-4">
+                        <a href="/teams" class="bg-indigo-600 text-white px-6 py-3 rounded-lg font-semibold hover:bg-indigo-700 transition duration-200">
+                            <i class="fas fa-users mr-2"></i>전체 팀 보기
+                        </a>
+                        <a href="/messages" class="bg-purple-600 text-white px-6 py-3 rounded-lg font-semibold hover:bg-purple-700 transition duration-200">
+                            <i class="fas fa-envelope mr-2"></i>익명 쪽지 보내기
+                        </a>
+                        <a href="/vote" class="bg-orange-600 text-white px-6 py-3 rounded-lg font-semibold hover:bg-orange-700 transition duration-200">
+                            <i class="fas fa-star mr-2"></i>호감도 투표하기
+                        </a>
+                        <a href="/" class="bg-gray-300 text-gray-700 px-6 py-3 rounded-lg font-semibold hover:bg-gray-400 transition duration-200">
+                            <i class="fas fa-home mr-2"></i>홈으로
+                        </a>
+                    </div>
                 </div>
             </div>
 
@@ -1874,6 +1973,31 @@ app.get('/teams', async (c) => {
         <link href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.4.0/css/all.min.css" rel="stylesheet">
     </head>
     <body class="bg-gradient-to-br from-blue-50 to-indigo-100 min-h-screen">
+        <!-- 상단 네비게이션 -->
+        <nav class="bg-white shadow-md mb-6">
+            <div class="container mx-auto px-4">
+                <div class="flex items-center justify-between py-4">
+                    <a href="/" class="text-xl font-bold text-indigo-600">
+                        <i class="fas fa-users mr-2"></i>YEONBAM SEASON 2
+                    </a>
+                    <div class="flex space-x-4">
+                        <a href="/teams" class="text-indigo-600 font-semibold">
+                            <i class="fas fa-users mr-1"></i>팀 현황
+                        </a>
+                        <a href="/messages" class="text-gray-700 hover:text-purple-600 transition">
+                            <i class="fas fa-envelope mr-1"></i>익명 쪽지
+                        </a>
+                        <a href="/vote" class="text-gray-700 hover:text-orange-600 transition">
+                            <i class="fas fa-star mr-1"></i>호감도 투표
+                        </a>
+                        <a href="/admin" class="text-gray-700 hover:text-gray-900 transition">
+                            <i class="fas fa-cog mr-1"></i>관리자
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </nav>
+        
         <div class="container mx-auto px-4 py-8">
             <div class="max-w-4xl mx-auto">
                 <div class="text-center mb-8">
@@ -1887,8 +2011,14 @@ app.get('/teams', async (c) => {
                     <!-- Teams will be loaded here -->
                 </div>
 
-                <div class="text-center mt-8">
-                    <a href="/" class="inline-block bg-indigo-600 text-white px-6 py-3 rounded-lg font-semibold hover:bg-indigo-700 transition duration-200">
+                <div class="text-center mt-8 space-x-3">
+                    <a href="/messages" class="inline-block bg-purple-600 text-white px-6 py-3 rounded-lg font-semibold hover:bg-purple-700 transition duration-200">
+                        <i class="fas fa-envelope mr-2"></i>익명 쪽지
+                    </a>
+                    <a href="/vote" class="inline-block bg-orange-600 text-white px-6 py-3 rounded-lg font-semibold hover:bg-orange-700 transition duration-200">
+                        <i class="fas fa-star mr-2"></i>호감도 투표
+                    </a>
+                    <a href="/" class="inline-block bg-gray-300 text-gray-700 px-6 py-3 rounded-lg font-semibold hover:bg-gray-400 transition duration-200">
                         <i class="fas fa-home mr-2"></i>홈으로
                     </a>
                 </div>
