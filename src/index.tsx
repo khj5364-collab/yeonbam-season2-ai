@@ -1031,6 +1031,36 @@ app.get('/messages', (c) => {
             let currentUser = null;
             let currentAccessCode = null;
 
+            // 페이지 로드 시 세션 확인 및 자동 로그인
+            window.addEventListener('DOMContentLoaded', async () => {
+                const savedCode = sessionStorage.getItem('userAccessCode');
+                const savedNickname = sessionStorage.getItem('userNickname');
+                
+                if (savedCode && savedNickname) {
+                    // 세션 정보가 있으면 자동 로그인
+                    try {
+                        const response = await axios.post('/api/re-entry', { 
+                            accessCode: savedCode, 
+                            nickname: savedNickname 
+                        });
+                        
+                        if (response.data.success && response.data.user) {
+                            currentUser = response.data.user;
+                            currentAccessCode = savedCode;
+                            
+                            document.getElementById('loginScreen').classList.add('hidden');
+                            document.getElementById('mainScreen').classList.remove('hidden');
+                            document.getElementById('userNickname').textContent = savedNickname;
+                            
+                            loadInbox();
+                        }
+                    } catch (error) {
+                        // 자동 로그인 실패 시 로그인 화면 유지
+                        console.log('자동 로그인 실패:', error);
+                    }
+                }
+            });
+
             async function login() {
                 const code = document.getElementById('loginCode').value.trim();
                 const nickname = document.getElementById('loginNickname').value.trim();
@@ -1062,6 +1092,9 @@ app.get('/messages', (c) => {
                 if (confirm('로그아웃 하시겠습니까?')) {
                     currentUser = null;
                     currentAccessCode = null;
+                    // 세션 정보도 삭제
+                    sessionStorage.removeItem('userAccessCode');
+                    sessionStorage.removeItem('userNickname');
                     document.getElementById('loginScreen').classList.remove('hidden');
                     document.getElementById('mainScreen').classList.add('hidden');
                     document.getElementById('loginCode').value = '';
@@ -1375,6 +1408,36 @@ app.get('/vote', (c) => {
             let currentUser = null;
             let currentAccessCode = null;
 
+            // 페이지 로드 시 세션 확인 및 자동 로그인
+            window.addEventListener('DOMContentLoaded', async () => {
+                const savedCode = sessionStorage.getItem('userAccessCode');
+                const savedNickname = sessionStorage.getItem('userNickname');
+                
+                if (savedCode && savedNickname) {
+                    // 세션 정보가 있으면 자동 로그인
+                    try {
+                        const response = await axios.post('/api/re-entry', { 
+                            accessCode: savedCode, 
+                            nickname: savedNickname 
+                        });
+                        
+                        if (response.data.success && response.data.user) {
+                            currentUser = response.data.user;
+                            currentAccessCode = savedCode;
+                            
+                            document.getElementById('loginScreen').classList.add('hidden');
+                            document.getElementById('mainScreen').classList.remove('hidden');
+                            document.getElementById('userNickname').textContent = savedNickname;
+                            
+                            loadMyVotes();
+                        }
+                    } catch (error) {
+                        // 자동 로그인 실패 시 로그인 화면 유지
+                        console.log('자동 로그인 실패:', error);
+                    }
+                }
+            });
+
             async function login() {
                 const code = document.getElementById('loginCode').value.trim();
                 const nickname = document.getElementById('loginNickname').value.trim();
@@ -1406,6 +1469,9 @@ app.get('/vote', (c) => {
                 if (confirm('로그아웃 하시겠습니까?')) {
                     currentUser = null;
                     currentAccessCode = null;
+                    // 세션 정보도 삭제
+                    sessionStorage.removeItem('userAccessCode');
+                    sessionStorage.removeItem('userNickname');
                     document.getElementById('loginScreen').classList.remove('hidden');
                     document.getElementById('mainScreen').classList.add('hidden');
                     document.getElementById('loginCode').value = '';
@@ -1857,6 +1923,10 @@ app.get('/', (c) => {
                         const participant = response.data.participant;
                         const teamInfoDiv = document.getElementById('reentryTeamInfo');
                         
+                        // 세션에 로그인 정보 저장
+                        sessionStorage.setItem('userAccessCode', code);
+                        sessionStorage.setItem('userNickname', nickname);
+                        
                         if (participant.teamNumber) {
                             teamInfoDiv.innerHTML = \`
                                 <p class="text-gray-700 mb-2">환영합니다, <strong>\${participant.nickname}</strong>님!</p>
@@ -1927,6 +1997,10 @@ app.get('/', (c) => {
 
                     if (response.data.success) {
                         const teamInfoDiv = document.getElementById('newUserTeamInfo');
+                        
+                        // 세션에 로그인 정보 저장
+                        sessionStorage.setItem('userAccessCode', verifiedCode);
+                        sessionStorage.setItem('userNickname', nickname);
                         
                         if (response.data.teamNumber) {
                             // 팀이 배정된 경우
