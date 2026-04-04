@@ -1,219 +1,208 @@
-# 팀 빌딩 시스템 (Team Building System)
+# YEONBAM SEASON 2 AI
 
-## 프로젝트 개요
-AI 툴을 활용한 자동 팀 빌딩 웹 애플리케이션입니다. QR 코드 스캔, 설문조사, 성비 균형을 고려한 자동 팀 배정 기능을 제공합니다.
+[![Cloudflare Pages](https://img.shields.io/badge/Cloudflare-Pages-orange)](https://pages.cloudflare.com/)
+[![Hono](https://img.shields.io/badge/Hono-v4-blue)](https://hono.dev/)
+[![TypeScript](https://img.shields.io/badge/TypeScript-5.0-blue)](https://www.typescriptlang.org/)
 
-**주요 기능:**
-- 일일 입장 코드 검증 (QR 코드 스캔 대응)
-- 닉네임 부여 및 중복 확인
-- 5단계 성향 설문조사 (MBTI 스타일)
-- 6팀 자동 팀 빌딩 (성비 균형 알고리즘)
-- 실시간 팀 현황 확인
-- 관리자 대시보드 (코드 생성, 통계)
+일일 입장 코드 기반 팀 빌딩 시스템
 
-## URLs
-- **로컬 개발**: http://localhost:3000
-- **샌드박스 테스트**: https://3000-ix3ng02r0id1zofj34rxz-b32ec7bb.sandbox.novita.ai
+## 🎯 주요 기능
 
-## 완성된 기능
+### 사용자 기능
+- **신규 입장**: 닉네임, 성별, MBTI, 팀 번호 입력
+- **재입장**: 입장 코드 + 닉네임으로 팀 확인
+- **전체 팀 보기**: 6개 팀 현황 조회
 
-### ✅ 1. 입장 코드 검증 시스템
-- **경로**: `/` (메인 페이지)
-- **API**: `POST /api/verify-code`
-- **기능**: 일일 입장 코드를 입력하여 접근 권한 확인
-- **현재 입장 코드**: `0000` (오늘 날짜로 설정됨)
+### 관리자 기능
+- **일일 코드 관리**: 생성, 활성화/비활성화, 삭제
+- **코드별 통계**: 독립적인 참가자 및 팀 현황
+- **팀 설정**: 팀당 인원 (6/7/8명) 선택
+- **고급 팀 배정**:
+  - MBTI 기반 E/I 균형
+  - 성비 균형 (남성 과다 방지)
+  - 이전 팀원 겹침 방지 (최대 2명)
+  - 인원 균등 분배
 
-### ✅ 2. 닉네임 부여 및 성별 선택
-- **API**: `POST /api/check-nickname`
-- **기능**: 
-  - 고유한 닉네임 입력 및 중복 확인
-  - 성별 선택 (남성/여성)
+## 🏗️ 기술 스택
 
-### ✅ 3. 성향 설문조사
-- **API**: 
-  - `GET /api/survey-questions` (질문 목록 조회)
-  - `POST /api/register` (설문 응답 제출)
-- **설문 내용**:
-  1. 새로운 사람들과 쉽게 친해지는 편인가?
-  2. 계획을 세우고 실행하는 것을 좋아하는가?
-  3. 감정적으로 결정을 내리는 편인가?
-  4. 혼자 있는 시간이 필요한가?
-  5. 논리적이고 분석적으로 생각하는 편인가?
-- **응답 옵션**: 5단계 (매우 아니다 ~ 매우 그렇다)
+- **Frontend**: HTML/JavaScript (Vanilla), Tailwind CSS, Font Awesome
+- **Backend**: Hono v4 (TypeScript)
+- **Database**: Cloudflare D1 (SQLite)
+- **Deploy**: Cloudflare Pages
+- **Build**: Vite, Wrangler
 
-### ✅ 4. 6팀 자동 팀 빌딩 (성비 균형)
-- **알고리즘**:
-  1. 현재 각 팀의 성별 인원수 확인
-  2. 참가자의 성별에 따라 해당 성별이 가장 적은 팀 우선 선택
-  3. 동일한 경우 전체 인원이 적은 팀 선택
-  4. 자동으로 팀 번호 할당 (1~6팀)
-- **API**: `POST /api/register`
+## 🚀 빠른 시작
 
-### ✅ 5. 팀 현황 페이지
-- **경로**: `/teams`
-- **API**: 
-  - `GET /api/teams` (전체 팀 통계)
-  - `GET /api/team/:teamNumber` (특정 팀 멤버)
-- **기능**:
-  - 6개 팀의 인원수 확인
-  - 각 팀의 남성/여성 인원수
-  - 팀별 멤버 목록
+### 1. 설치
 
-### ✅ 6. 관리자 페이지 (완전한 코드 관리 시스템)
-- **경로**: `/admin`
-- **로그인**: 비밀번호 `qwer1234` 입력 필요 🔐
-- **세션 관리**: 로그인 상태는 브라우저 세션에 저장 (로그아웃 버튼으로 종료)
-- **API**:
-  - `POST /api/admin/generate-code` (코드 생성 - 비활성 상태로)
-  - `POST /api/admin/toggle-code` (코드 활성화/비활성화 토글) 🆕
-  - `POST /api/admin/delete-code` (코드 삭제) 🆕
-  - `GET /api/admin/stats` (전체 통계 조회)
-  - `GET /api/admin/codes` (모든 입장 코드 목록)
-  - `GET /api/admin/code/:code/participants` (코드별 참가자 상세)
-
-- **코드 생성 및 관리**:
-  - 새 코드 생성 (비활성 상태로 생성됨)
-  - **모든 생성된 코드 목록 표시** (과거/현재/미래)
-  - **코드별 활성화/비활성화 제어** 🆕
-    - 활성화: 참가자가 해당 코드로 입장 가능
-    - 비활성화: 참가자 입장 차단
-  - **참가자 없는 코드 삭제 가능** 🆕
-  - 코드별 참가자 수 실시간 표시
-
-- **입장 코드별 현황 조회**:
-  - 각 코드(0000, 1234 등)별 참가자 확인
-  - 활성/비활성 상태 시각적 표시
-  - 상세보기 모달로 팀별 참가자 목록 확인
-  - 코드별 통계 (총 인원, 남성/여성 비율)
-
-- **전체 통계 및 모니터링**:
-  - 전체 참가자 통계 (남성/여성/전체)
-  - 팀별 인원 현황
-  - 5초마다 자동 새로고침
-
-- **관리자 비밀번호**: `qwer1234` (페이지 접근 시 필요)
-
-## 데이터 모델
-
-### D1 Database 테이블
-- **daily_codes**: 일일 입장 코드
-- **participants**: 참가자 정보 (닉네임, 성별, 팀 번호)
-- **survey_questions**: 설문 질문
-- **survey_responses**: 설문 응답
-- **teams**: 팀 구성 현황 (남성/여성/전체 인원수)
-
-## 사용 방법
-
-### 참가자 등록 프로세스
-1. 메인 페이지(`/`) 접속
-2. 입장 코드 입력: `0000`
-3. 닉네임 입력 및 성별 선택
-4. 5개 설문 질문에 답변
-5. 자동으로 팀 배정 완료
-6. 팀 번호 확인 및 팀 현황 보기
-
-### 관리자 기능 (완전한 코드 관리)
-1. `/admin` 페이지 접속 및 로그인 (비밀번호: `qwer1234`) 🔐
-2. **코드 생성 및 관리**
-   - 새로운 코드 생성 (비활성 상태로)
-   - 생성된 모든 코드 목록 확인 (과거/현재/미래)
-   - 각 코드를 활성화/비활성화 토글
-   - 참가자 없는 코드 삭제
-3. **입장 코드별 참가자 현황 조회**
-   - 각 코드(0000, 1234 등)별로 참가자 확인
-   - 코드별 통계 (총 인원, 남성/여성 비율)
-   - 팀별 참가자 목록 상세보기
-4. 현황 통계 확인 (실시간 업데이트)
-5. 전체 팀별 인원 현황 모니터링
-
-## 개발 및 배포
-
-### 로컬 개발
 ```bash
-# 데이터베이스 초기화
-npm run db:migrate:local
-npm run db:seed
+git clone https://github.com/khj5364-collab/yeonbam-season2-ai.git
+cd yeonbam-season2-ai
+npm install
+```
+
+### 2. 로컬 개발
+
+```bash
+# D1 데이터베이스 생성
+npx wrangler d1 create webapp-production
+
+# wrangler.jsonc에 database_id 입력
+# "database_id": "복사된-database-id"
+
+# 마이그레이션 적용
+npx wrangler d1 migrations apply webapp-production --local
 
 # 빌드
 npm run build
 
-# 개발 서버 시작 (PM2)
-pm2 start ecosystem.config.cjs
-
-# 서버 상태 확인
-pm2 logs webapp --nostream
-curl http://localhost:3000
+# 개발 서버 실행
+npm run dev:sandbox
 ```
 
-### Cloudflare Pages 배포
+브라우저에서 `http://localhost:3000` 접속
+
+### 3. Cloudflare Pages 배포
+
 ```bash
-# 프로덕션 데이터베이스 생성
-npx wrangler d1 create webapp-production
+# Cloudflare 로그인
+npx wrangler login
 
-# wrangler.jsonc에 database_id 입력
+# 프로덕션 D1 마이그레이션
+npx wrangler d1 migrations apply webapp-production
 
-# 마이그레이션 적용
-npm run db:migrate:prod
+# Pages 프로젝트 생성
+npx wrangler pages project create webapp --production-branch main
 
 # 배포
-npm run deploy:prod
+npm run deploy
 ```
 
-## 코드 관리 워크플로우 🆕
+## 📊 데이터베이스 스키마
 
-### 이벤트 당일 시나리오
+### daily_codes
+- 일일 입장 코드 관리
+- 활성화/비활성화 상태
+
+### participants
+- 참가자 정보 (닉네임, 성별, MBTI, 팀 번호)
+- 입장 코드별 구분
+
+### teams
+- 6개 팀 통계 (남/여 인원수)
+
+### team_settings
+- 팀당 최대 인원 설정 (6/7/8명)
+
+## 🎨 팀 배정 알고리즘
+
+### 우선순위
+1. **팀 인원 균등** (2000점) - 최대 1명 차이
+2. **성비 균형** - 남성이 2명 이상 많으면 차단
+3. **이전 팀원 겹침** (500점) - 최대 2명
+4. **MBTI E/I 균형** (100점) - I 과다 방지
+
+### 성비 제약
+```typescript
+// 차단: 남성이 여성보다 2명 이상 많음
+if (maleCount - femaleCount >= 2) return false;
+
+// 허용
+남3, 여3 ✅  // 이상적
+남2, 여4 ✅  // 여성 많음 허용
+남4, 여2 ❌  // 남성 과다 차단
 ```
-1. 관리자 페이지 접속 (/admin)
-   ↓
-2. 비밀번호 입력 (qwer1234) 🔐
-   ↓
-3. "일일 코드 생성" 섹션에서 새 코드 생성
-   예: 코드 "2024", 날짜 "2025-11-05"
-   → 코드가 비활성 상태로 생성됨
-   ↓
-4. "입장 코드별 현황" 섹션에서 생성된 코드 확인
-   → [2024] 2025-11-05 | 0명 참가 | [비활성] [활성화] [상세보기] [삭제]
-   ↓
-5. 이벤트 시작 전 "활성화" 버튼 클릭 (확인 대화상자만 표시)
-   → [2024] 2025-11-05 | 0명 참가 | [활성] [비활성화] [상세보기]
-   ↓
-6. 참가자들이 코드 "2024"로 입장 시작
-   → [2024] 2025-11-05 | 15명 참가 | [활성] [비활성화] [상세보기]
-   ↓
-7. "상세보기" 클릭하여 실시간 참가자 및 팀 구성 확인
-   ↓
-8. 이벤트 종료 후 "비활성화" 버튼 클릭 (확인 대화상자만 표시)
-   → 더 이상 해당 코드로 입장 불가
+
+### 배정 방식
+성별 교차 배정으로 균형 극대화:
+- I타입: 남→여→남→여...
+- E타입: 남→여→남→여...
+
+### 테스트 결과
+**36명 (남18, 여18)**
+- 결과: 6팀 × 6명 (모든 팀 남3, 여3)
+- 상태: ✅ 완벽한 균형
+
+## 📁 프로젝트 구조
+
+```
+webapp/
+├── src/
+│   └── index.tsx           # 메인 애플리케이션
+├── migrations/
+│   ├── 0001_initial_schema.sql
+│   ├── 0002_add_mbti_column.sql
+│   ├── 0003_add_team_settings.sql
+│   └── 0004_update_default_team_size.sql
+├── package.json
+├── wrangler.jsonc          # Cloudflare 설정
+├── tsconfig.json
+└── README.md
 ```
 
-### 코드별 참가자 분리
-- **0000 코드** (10월 31일): 김철수, 이영희 등 → Team 1, 2, 3...
-- **1234 코드** (11월 1일): 박민수, 최지은 등 → Team 1, 2, 3...
-- **2024 코드** (11월 5일): 정수진, 강호동 등 → Team 1, 2, 3...
+## 🔐 관리자 인증
 
-각 코드별로 완전히 독립된 참가자 및 팀 구성 관리!
+**비밀번호**: `qwer1234`
 
-## 기술 스택
-- **Backend**: Hono (Edge Framework)
-- **Database**: Cloudflare D1 (SQLite)
-- **Frontend**: Vanilla JS + TailwindCSS + FontAwesome
-- **Deployment**: Cloudflare Pages
-- **Process Manager**: PM2 (개발 환경)
+관리자 페이지: `/admin`
 
-## 배포 상태
-- ✅ 로컬 개발 환경 구축 완료
-- ✅ 샌드박스 테스트 서버 구동 중
-- ⏳ Cloudflare Pages 프로덕션 배포 대기
+## 📋 주요 API 엔드포인트
 
-## 추천 개선 사항
-1. **QR 코드 스캔 기능**: 웹캠 API를 활용한 실제 QR 코드 스캔 구현
-2. **팀 분석**: 설문 응답 데이터 기반 팀 매칭 최적화
-3. **알림 기능**: 팀 배정 완료 시 알림 또는 이메일 발송
-4. **팀 채팅**: 팀원 간 실시간 채팅 기능
-5. **통계 대시보드**: Chart.js를 활용한 시각화
-6. **인증 강화**: 관리자 JWT 인증 또는 OAuth 적용
-7. **다국어 지원**: i18n을 활용한 영어/한국어 지원
-8. **모바일 최적화**: PWA 구현으로 앱처럼 사용
+### 사용자
+- `POST /api/check-nickname` - 닉네임 중복 확인
+- `POST /api/register` - 신규 등록
+- `POST /api/re-entry` - 재입장
+- `GET /api/teams` - 전체 팀 조회
 
-## 마지막 업데이트
-2025-10-31
+### 관리자
+- `POST /api/admin/generate-code` - 코드 생성
+- `GET /api/admin/codes` - 코드 목록
+- `POST /api/admin/toggle-code` - 활성화 토글
+- `POST /api/admin/delete-code` - 코드 삭제
+- `GET /api/admin/stats` - 통계 조회
+- `GET /api/admin/code/:code/participants` - 참가자 상세
+- `GET/POST /api/admin/team-settings` - 팀 설정
+- `POST /api/admin/assign-teams` - 팀 배정
+
+## 📝 npm 스크립트
+
+```bash
+npm run dev              # Vite 개발 서버
+npm run dev:sandbox      # Wrangler 개발 서버
+npm run build            # 프로젝트 빌드
+npm run deploy           # Cloudflare 배포
+npm run db:migrate:local # 로컬 마이그레이션
+npm run db:migrate:prod  # 프로덕션 마이그레이션
+```
+
+## 🎯 제약 사항
+
+- MBTI: 4자리 영문 대문자 (예: ENFP)
+- 닉네임: 코드별 중복 불가
+- 팀: 최대 6개 팀
+- 팀 인원: 6/7/8명만 선택 가능
+- 성비: 남성이 2명 이상 많으면 차단
+
+## 📚 문서
+
+- **PROJECT_SPECIFICATION.md** - 전체 프로젝트 사양
+- **COMPLETE_CODE_ARCHIVE.md** - 핵심 코드 모음
+- **AI_PROMPT_FOR_RECREATION.md** - AI 재현용 프롬프트
+
+## 🤝 기여
+
+이슈와 PR은 언제나 환영합니다!
+
+## 📄 라이선스
+
+MIT License
+
+## 🔗 링크
+
+- [Cloudflare Pages](https://pages.cloudflare.com/)
+- [Hono Framework](https://hono.dev/)
+- [Cloudflare D1](https://developers.cloudflare.com/d1/)
+
+---
+
+Made with ❤️ for YEONBAM SEASON 2
