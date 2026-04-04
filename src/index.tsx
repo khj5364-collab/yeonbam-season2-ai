@@ -232,6 +232,37 @@ app.post('/api/reentry-check', async (c) => {
   }
 })
 
+// 6-2. 재입장 API (쪽지/투표용 - 전체 사용자 정보 반환)
+app.post('/api/re-entry', async (c) => {
+  try {
+    const { accessCode, nickname } = await c.req.json()
+    
+    if (!accessCode || !nickname) {
+      return c.json({ success: false, message: '코드와 닉네임을 입력해주세요.' }, 400)
+    }
+
+    // 참가자 확인
+    const participant = await c.env.DB.prepare(`
+      SELECT id, nickname, gender, mbti, team_number, access_code, created_at
+      FROM participants 
+      WHERE nickname = ? AND access_code = ?
+    `).bind(nickname, accessCode).first()
+
+    if (!participant) {
+      return c.json({ success: false, message: '해당 닉네임으로 등록된 참가자를 찾을 수 없습니다.' }, 404)
+    }
+
+    return c.json({ 
+      success: true, 
+      message: '로그인 성공', 
+      user: participant
+    })
+  } catch (error) {
+    console.error('Error in re-entry:', error)
+    return c.json({ success: false, message: '서버 오류가 발생했습니다.' }, 500)
+  }
+})
+
 // 7. 관리자 - 일일 코드 생성 API
 app.post('/api/admin/generate-code', async (c) => {
   try {
@@ -2651,8 +2682,8 @@ app.get('/admin', (c) => {
                 }
                 
                 try {
-                    const response = await axios.get(\`/api/admin/messages/mutual?accessCode=\${code}\`);
-                    const mutualPairs = response.data.mutualPairs || [];
+                    const response = await axios.get(\`/api/admin/messages/mutual?accessCode=\${code}&adminPassword=\${ADMIN_PASSWORD}\`);
+                    const mutualPairs = response.data.matches || [];
                     
                     if (mutualPairs.length === 0) {
                         listDiv.innerHTML = '<p class="text-gray-500 text-center py-8">쌍방 쪽지 내역이 없습니다.</p>';
@@ -2664,11 +2695,11 @@ app.get('/admin', (c) => {
                             <div class="flex items-center justify-between">
                                 <div class="flex items-center space-x-4">
                                     <div class="bg-purple-600 text-white px-4 py-2 rounded-lg">
-                                        <i class="fas fa-user mr-2"></i>\${pair.user1_nickname}
+                                        <i class="fas fa-user mr-2"></i>\${pair.person1_nickname}
                                     </div>
                                     <i class="fas fa-exchange-alt text-purple-600 text-2xl"></i>
                                     <div class="bg-purple-600 text-white px-4 py-2 rounded-lg">
-                                        <i class="fas fa-user mr-2"></i>\${pair.user2_nickname}
+                                        <i class="fas fa-user mr-2"></i>\${pair.person2_nickname}
                                     </div>
                                 </div>
                                 <div class="text-sm text-gray-600">
@@ -2693,7 +2724,7 @@ app.get('/admin', (c) => {
                 }
                 
                 try {
-                    const response = await axios.get(\`/api/admin/votes/stats?accessCode=\${code}\`);
+                    const response = await axios.get(\`/api/admin/votes/stats?accessCode=\${code}&adminPassword=\${ADMIN_PASSWORD}\`);
                     const stats = response.data.stats || {};
                     
                     displayDiv.innerHTML = \`
@@ -3005,8 +3036,20 @@ app.get('/api/admin/votes/stats', async (c) => {
       WHERE (? = '' OR access_code = ?)
     `).bind(accessCode || '', accessCode || '').first()
 
-    // 참가자별 투표 수
-    const { results: participantVotes } = await c.env.DB.prepare(`
+    // 투표한 사람 수 (voter)
+    const totalVoters = await c.env.DB.prepare(`
+      SELECT COUNT(DISTINCT voter_id) as count FROM votes
+      WHERE (? = '' OR access_code = ?)
+    `).bind(accessCode || '', accessCode || '').first()
+
+    // 득표한 사람 수 (votee)
+    const totalVotees = await c.env.DB.prepare(`
+      SELECT COUNT(DISTINCT votee_id) as count FROM votes
+      WHERE (? = '' OR access_code = ?)
+    `).bind(accessCode || '', accessCode || '').first()
+
+    // TOP 10 득표자
+    const { results: topVotees } = await c.env.DB.prepare(`
       SELECT 
         p.nickname,
         p.gender,
@@ -3016,14 +3059,18 @@ app.get('/api/admin/votes/stats', async (c) => {
       LEFT JOIN votes v ON p.id = v.votee_id
       WHERE (? = '' OR p.access_code = ?)
       GROUP BY p.id
+      HAVING vote_count > 0
       ORDER BY vote_count DESC
+      LIMIT 10
     `).bind(accessCode || '', accessCode || '').all()
 
     return c.json({ 
       success: true, 
       stats: {
         totalVotes: totalVotes?.count || 0,
-        participantVotes
+        totalVoters: totalVoters?.count || 0,
+        totalVotees: totalVotees?.count || 0,
+        topVotees
       }
     })
   } catch (error) {
