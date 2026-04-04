@@ -838,6 +838,84 @@ app.get('/api/admin/code/:code/participants', async (c) => {
 // Frontend Routes
 // ============================================
 
+// 쪽지 페이지
+app.get('/messages', (c) => {
+  return c.html(`
+    <!DOCTYPE html>
+    <html lang="ko">
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>익명 쪽지 - YEONBAM SEASON 2 AI</title>
+        <script src="https://cdn.tailwindcss.com"></script>
+        <link href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.4.0/css/all.min.css" rel="stylesheet">
+    </head>
+    <body class="bg-gradient-to-br from-purple-50 to-pink-100 min-h-screen">
+        <div class="container mx-auto px-4 py-8">
+            <div class="max-w-4xl mx-auto">
+                <div class="bg-white rounded-2xl shadow-xl p-8">
+                    <h1 class="text-3xl font-bold text-purple-800 mb-6">
+                        <i class="fas fa-envelope mr-2"></i>익명 쪽지
+                    </h1>
+                    
+                    <div class="mb-6 p-4 bg-purple-50 rounded-lg">
+                        <p class="text-purple-900">💌 익명으로 쪽지를 보내고 받을 수 있습니다.</p>
+                        <p class="text-purple-700 text-sm mt-2">쌍방향으로 쪽지를 주고받으면 관리자가 확인할 수 있습니다.</p>
+                    </div>
+
+                    <div class="text-center">
+                        <p class="text-gray-700 mb-4">로그인 후 이용 가능합니다.</p>
+                        <a href="/" class="inline-block bg-purple-600 text-white px-6 py-3 rounded-lg hover:bg-purple-700">
+                            <i class="fas fa-home mr-2"></i>홈으로
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </body>
+    </html>
+  `)
+})
+
+// 투표 페이지
+app.get('/vote', (c) => {
+  return c.html(`
+    <!DOCTYPE html>
+    <html lang="ko">
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>호감도 투표 - YEONBAM SEASON 2 AI</title>
+        <script src="https://cdn.tailwindcss.com"></script>
+        <link href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.4.0/css/all.min.css" rel="stylesheet">
+    </head>
+    <body class="bg-gradient-to-br from-yellow-50 to-orange-100 min-h-screen">
+        <div class="container mx-auto px-4 py-8">
+            <div class="max-w-4xl mx-auto">
+                <div class="bg-white rounded-2xl shadow-xl p-8">
+                    <h1 class="text-3xl font-bold text-orange-800 mb-6">
+                        <i class="fas fa-star mr-2"></i>호감도 투표
+                    </h1>
+                    
+                    <div class="mb-6 p-4 bg-orange-50 rounded-lg">
+                        <p class="text-orange-900">⭐ 최대 3명에게 투표할 수 있습니다.</p>
+                        <p class="text-orange-700 text-sm mt-2">투표 결과는 익명으로 집계됩니다.</p>
+                    </div>
+
+                    <div class="text-center">
+                        <p class="text-gray-700 mb-4">로그인 후 이용 가능합니다.</p>
+                        <a href="/" class="inline-block bg-orange-600 text-white px-6 py-3 rounded-lg hover:bg-orange-700">
+                            <i class="fas fa-home mr-2"></i>홈으로
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </body>
+    </html>
+  `)
+})
+
 // 메인 페이지
 app.get('/', (c) => {
   return c.html(`
@@ -1955,6 +2033,315 @@ app.get('/admin', (c) => {
     </body>
     </html>
   `)
+})
+
+// ============================================
+// 익명 쪽지 시스템 API
+// ============================================
+
+// 쪽지 보내기
+app.post('/api/messages/send', async (c) => {
+  try {
+    const { senderId, receiverNickname, accessCode, content } = await c.req.json()
+    
+    if (!senderId || !receiverNickname || !accessCode || !content) {
+      return c.json({ success: false, message: '모든 필드를 입력해주세요.' }, 400)
+    }
+
+    // 수신자 찾기
+    const receiver = await c.env.DB.prepare(`
+      SELECT id FROM participants WHERE nickname = ? AND access_code = ?
+    `).bind(receiverNickname, accessCode).first()
+
+    if (!receiver) {
+      return c.json({ success: false, message: '수신자를 찾을 수 없습니다.' }, 400)
+    }
+
+    // 자기 자신에게 보내기 방지
+    if (senderId === receiver.id) {
+      return c.json({ success: false, message: '자기 자신에게는 쪽지를 보낼 수 없습니다.' }, 400)
+    }
+
+    // 쪽지 저장
+    await c.env.DB.prepare(`
+      INSERT INTO messages (sender_id, receiver_id, access_code, content)
+      VALUES (?, ?, ?, ?)
+    `).bind(senderId, receiver.id, accessCode, content).run()
+
+    return c.json({ success: true, message: '쪽지가 전송되었습니다.' })
+  } catch (error) {
+    console.error('Error sending message:', error)
+    return c.json({ success: false, message: '서버 오류가 발생했습니다.' }, 500)
+  }
+})
+
+// 받은 쪽지 목록
+app.get('/api/messages/received/:participantId', async (c) => {
+  try {
+    const participantId = c.req.param('participantId')
+
+    const { results } = await c.env.DB.prepare(`
+      SELECT m.id, m.content, m.is_read, m.created_at, p.nickname as sender_nickname
+      FROM messages m
+      JOIN participants p ON m.sender_id = p.id
+      WHERE m.receiver_id = ?
+      ORDER BY m.created_at DESC
+    `).bind(participantId).all()
+
+    return c.json({ success: true, messages: results })
+  } catch (error) {
+    console.error('Error fetching received messages:', error)
+    return c.json({ success: false, message: '서버 오류가 발생했습니다.' }, 500)
+  }
+})
+
+// 보낸 쪽지 목록
+app.get('/api/messages/sent/:participantId', async (c) => {
+  try {
+    const participantId = c.req.param('participantId')
+
+    const { results } = await c.env.DB.prepare(`
+      SELECT m.id, m.content, m.is_read, m.created_at, p.nickname as receiver_nickname
+      FROM messages m
+      JOIN participants p ON m.receiver_id = p.id
+      WHERE m.sender_id = ?
+      ORDER BY m.created_at DESC
+    `).bind(participantId).all()
+
+    return c.json({ success: true, messages: results })
+  } catch (error) {
+    console.error('Error fetching sent messages:', error)
+    return c.json({ success: false, message: '서버 오류가 발생했습니다.' }, 500)
+  }
+})
+
+// 쪽지 읽음 처리
+app.post('/api/messages/mark-read/:messageId', async (c) => {
+  try {
+    const messageId = c.req.param('messageId')
+
+    await c.env.DB.prepare(`
+      UPDATE messages SET is_read = 1 WHERE id = ?
+    `).bind(messageId).run()
+
+    return c.json({ success: true })
+  } catch (error) {
+    console.error('Error marking message as read:', error)
+    return c.json({ success: false, message: '서버 오류가 발생했습니다.' }, 500)
+  }
+})
+
+// 관리자 - 쌍방향 매칭 목록
+app.get('/api/admin/messages/mutual', async (c) => {
+  try {
+    const { adminPassword, accessCode } = c.req.query()
+
+    if (adminPassword !== 'qwer1234') {
+      return c.json({ success: false, message: '관리자 권한이 없습니다.' }, 403)
+    }
+
+    // 쌍방향 쪽지를 보낸 쌍 찾기
+    const { results } = await c.env.DB.prepare(`
+      SELECT DISTINCT
+        p1.id as person1_id,
+        p1.nickname as person1_nickname,
+        p1.gender as person1_gender,
+        p1.mbti as person1_mbti,
+        p2.id as person2_id,
+        p2.nickname as person2_nickname,
+        p2.gender as person2_gender,
+        p2.mbti as person2_mbti,
+        COUNT(*) as message_count
+      FROM messages m1
+      JOIN messages m2 ON m1.sender_id = m2.receiver_id AND m1.receiver_id = m2.sender_id
+      JOIN participants p1 ON m1.sender_id = p1.id
+      JOIN participants p2 ON m1.receiver_id = p2.id
+      WHERE m1.sender_id < m1.receiver_id
+        AND (? = '' OR m1.access_code = ?)
+      GROUP BY p1.id, p2.id
+      ORDER BY message_count DESC
+    `).bind(accessCode || '', accessCode || '').all()
+
+    return c.json({ success: true, matches: results })
+  } catch (error) {
+    console.error('Error fetching mutual matches:', error)
+    return c.json({ success: false, message: '서버 오류가 발생했습니다.' }, 500)
+  }
+})
+
+// ============================================
+// 호감도 투표 시스템 API
+// ============================================
+
+// 투표하기 (최대 3명)
+app.post('/api/votes/submit', async (c) => {
+  try {
+    const { voterId, voteeNicknames, accessCode } = await c.req.json()
+
+    if (!voterId || !voteeNicknames || !Array.isArray(voteeNicknames)) {
+      return c.json({ success: false, message: '잘못된 요청입니다.' }, 400)
+    }
+
+    if (voteeNicknames.length > 3) {
+      return c.json({ success: false, message: '최대 3명까지만 투표할 수 있습니다.' }, 400)
+    }
+
+    // 기존 투표 삭제
+    await c.env.DB.prepare(`
+      DELETE FROM votes WHERE voter_id = ?
+    `).bind(voterId).run()
+
+    // 새 투표 저장
+    for (const nickname of voteeNicknames) {
+      const votee = await c.env.DB.prepare(`
+        SELECT id FROM participants WHERE nickname = ? AND access_code = ?
+      `).bind(nickname, accessCode).first()
+
+      if (!votee) continue
+
+      // 자기 자신 투표 방지
+      if (voterId === votee.id) continue
+
+      await c.env.DB.prepare(`
+        INSERT INTO votes (voter_id, votee_id, access_code)
+        VALUES (?, ?, ?)
+      `).bind(voterId, votee.id, accessCode).run()
+    }
+
+    return c.json({ success: true, message: '투표가 완료되었습니다.' })
+  } catch (error) {
+    console.error('Error submitting votes:', error)
+    return c.json({ success: false, message: '서버 오류가 발생했습니다.' }, 500)
+  }
+})
+
+// 내가 한 투표 목록
+app.get('/api/votes/my-votes/:voterId', async (c) => {
+  try {
+    const voterId = c.req.param('voterId')
+
+    const { results } = await c.env.DB.prepare(`
+      SELECT p.nickname, p.gender, p.mbti
+      FROM votes v
+      JOIN participants p ON v.votee_id = p.id
+      WHERE v.voter_id = ?
+    `).bind(voterId).all()
+
+    return c.json({ success: true, votes: results })
+  } catch (error) {
+    console.error('Error fetching my votes:', error)
+    return c.json({ success: false, message: '서버 오류가 발생했습니다.' }, 500)
+  }
+})
+
+// 내가 받은 투표 수
+app.get('/api/votes/my-score/:participantId', async (c) => {
+  try {
+    const participantId = c.req.param('participantId')
+
+    const result = await c.env.DB.prepare(`
+      SELECT COUNT(*) as vote_count
+      FROM votes
+      WHERE votee_id = ?
+    `).bind(participantId).first()
+
+    return c.json({ success: true, voteCount: result?.vote_count || 0 })
+  } catch (error) {
+    console.error('Error fetching my score:', error)
+    return c.json({ success: false, message: '서버 오류가 발생했습니다.' }, 500)
+  }
+})
+
+// 전체 랭킹 (TOP 10)
+app.get('/api/votes/ranking', async (c) => {
+  try {
+    const { accessCode } = c.req.query()
+
+    const { results } = await c.env.DB.prepare(`
+      SELECT 
+        p.nickname,
+        p.gender,
+        p.mbti,
+        COUNT(v.id) as vote_count
+      FROM participants p
+      LEFT JOIN votes v ON p.id = v.votee_id
+      WHERE (? = '' OR p.access_code = ?)
+      GROUP BY p.id
+      ORDER BY vote_count DESC
+      LIMIT 10
+    `).bind(accessCode || '', accessCode || '').all()
+
+    return c.json({ success: true, ranking: results })
+  } catch (error) {
+    console.error('Error fetching ranking:', error)
+    return c.json({ success: false, message: '서버 오류가 발생했습니다.' }, 500)
+  }
+})
+
+// 관리자 - 투표 통계
+app.get('/api/admin/votes/stats', async (c) => {
+  try {
+    const { adminPassword, accessCode } = c.req.query()
+
+    if (adminPassword !== 'qwer1234') {
+      return c.json({ success: false, message: '관리자 권한이 없습니다.' }, 403)
+    }
+
+    // 전체 투표 수
+    const totalVotes = await c.env.DB.prepare(`
+      SELECT COUNT(*) as count FROM votes
+      WHERE (? = '' OR access_code = ?)
+    `).bind(accessCode || '', accessCode || '').first()
+
+    // 참가자별 투표 수
+    const { results: participantVotes } = await c.env.DB.prepare(`
+      SELECT 
+        p.nickname,
+        p.gender,
+        p.mbti,
+        COUNT(v.id) as vote_count
+      FROM participants p
+      LEFT JOIN votes v ON p.id = v.votee_id
+      WHERE (? = '' OR p.access_code = ?)
+      GROUP BY p.id
+      ORDER BY vote_count DESC
+    `).bind(accessCode || '', accessCode || '').all()
+
+    return c.json({ 
+      success: true, 
+      stats: {
+        totalVotes: totalVotes?.count || 0,
+        participantVotes
+      }
+    })
+  } catch (error) {
+    console.error('Error fetching vote stats:', error)
+    return c.json({ success: false, message: '서버 오류가 발생했습니다.' }, 500)
+  }
+})
+
+// 관리자 - 투표 초기화
+app.post('/api/admin/votes/reset', async (c) => {
+  try {
+    const { adminPassword, accessCode } = await c.req.json()
+
+    if (adminPassword !== 'qwer1234') {
+      return c.json({ success: false, message: '관리자 권한이 없습니다.' }, 403)
+    }
+
+    if (accessCode) {
+      await c.env.DB.prepare(`
+        DELETE FROM votes WHERE access_code = ?
+      `).bind(accessCode).run()
+    } else {
+      await c.env.DB.prepare(`DELETE FROM votes`).run()
+    }
+
+    return c.json({ success: true, message: '투표가 초기화되었습니다.' })
+  } catch (error) {
+    console.error('Error resetting votes:', error)
+    return c.json({ success: false, message: '서버 오류가 발생했습니다.' }, 500)
+  }
 })
 
 export default app
