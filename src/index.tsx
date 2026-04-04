@@ -1406,27 +1406,30 @@ app.get('/vote', (c) => {
 
                     <!-- 랭킹 -->
                     <div id="contentRanking" class="hidden bg-white rounded-2xl shadow-xl p-6">
-                        <h2 class="text-2xl font-bold text-gray-800 mb-4">
+                        <h2 class="text-2xl font-bold text-gray-800 mb-6 text-center">
                             <i class="fas fa-trophy mr-2"></i>호감도 랭킹 TOP 10
                         </h2>
                         
-                        <!-- 남성 랭킹 -->
-                        <div class="mb-6">
-                            <h3 class="text-xl font-semibold text-blue-600 mb-3">
-                                <i class="fas fa-mars mr-2"></i>남성 랭킹
-                            </h3>
-                            <div id="maleRankingList" class="space-y-3">
-                                <p class="text-gray-500 text-center py-4">랭킹 정보가 없습니다.</p>
+                        <!-- 남성/여성 랭킹 나란히 표시 -->
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                            <!-- 남성 랭킹 -->
+                            <div>
+                                <h3 class="text-xl font-semibold text-blue-600 mb-3 text-center">
+                                    <i class="fas fa-mars mr-2"></i>남성 랭킹
+                                </h3>
+                                <div id="maleRankingList" class="space-y-2">
+                                    <p class="text-gray-500 text-center py-4">랭킹 정보가 없습니다.</p>
+                                </div>
                             </div>
-                        </div>
-                        
-                        <!-- 여성 랭킹 -->
-                        <div>
-                            <h3 class="text-xl font-semibold text-pink-600 mb-3">
-                                <i class="fas fa-venus mr-2"></i>여성 랭킹
-                            </h3>
-                            <div id="femaleRankingList" class="space-y-3">
-                                <p class="text-gray-500 text-center py-4">랭킹 정보가 없습니다.</p>
+                            
+                            <!-- 여성 랭킹 -->
+                            <div>
+                                <h3 class="text-xl font-semibold text-pink-600 mb-3 text-center">
+                                    <i class="fas fa-venus mr-2"></i>여성 랭킹
+                                </h3>
+                                <div id="femaleRankingList" class="space-y-2">
+                                    <p class="text-gray-500 text-center py-4">랭킹 정보가 없습니다.</p>
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -1629,22 +1632,16 @@ app.get('/vote', (c) => {
                             const bgColor = idx < 3 ? 'bg-gradient-to-r from-blue-100 to-indigo-100' : 'bg-gray-50';
                             
                             return \`
-                                <div class="border-2 border-blue-300 rounded-lg p-4 \${bgColor}">
+                                <div class="border border-blue-300 rounded-lg p-3 \${bgColor}">
                                     <div class="flex items-center justify-between">
-                                        <div class="flex items-center space-x-3">
-                                            <span class="text-2xl">\${medal}</span>
+                                        <div class="flex items-center space-x-2">
+                                            <span class="text-xl">\${medal}</span>
                                             <div>
-                                                <p class="font-semibold text-gray-800">\${item.nickname}</p>
-                                                <p class="text-sm text-gray-600">
-                                                    <i class="fas fa-mars mr-1 text-blue-600"></i>남성
-                                                    <span class="ml-2">\${item.mbti}</span>
-                                                </p>
+                                                <p class="font-semibold text-gray-800 text-sm">\${item.nickname}</p>
+                                                <p class="text-xs text-gray-600">\${item.mbti}</p>
                                             </div>
                                         </div>
-                                        <div class="text-right">
-                                            <div class="text-3xl font-bold text-blue-600">\${item.vote_count}</div>
-                                            <p class="text-sm text-gray-600">득표</p>
-                                        </div>
+                                        <div class="text-2xl font-bold text-blue-600">\${item.vote_count}</div>
                                     </div>
                                 </div>
                             \`;
@@ -1662,22 +1659,16 @@ app.get('/vote', (c) => {
                             const bgColor = idx < 3 ? 'bg-gradient-to-r from-pink-100 to-rose-100' : 'bg-gray-50';
                             
                             return \`
-                                <div class="border-2 border-pink-300 rounded-lg p-4 \${bgColor}">
+                                <div class="border border-pink-300 rounded-lg p-3 \${bgColor}">
                                     <div class="flex items-center justify-between">
-                                        <div class="flex items-center space-x-3">
-                                            <span class="text-2xl">\${medal}</span>
+                                        <div class="flex items-center space-x-2">
+                                            <span class="text-xl">\${medal}</span>
                                             <div>
-                                                <p class="font-semibold text-gray-800">\${item.nickname}</p>
-                                                <p class="text-sm text-gray-600">
-                                                    <i class="fas fa-venus mr-1 text-pink-600"></i>여성
-                                                    <span class="ml-2">\${item.mbti}</span>
-                                                </p>
+                                                <p class="font-semibold text-gray-800 text-sm">\${item.nickname}</p>
+                                                <p class="text-xs text-gray-600">\${item.mbti}</p>
                                             </div>
                                         </div>
-                                        <div class="text-right">
-                                            <div class="text-3xl font-bold text-pink-600">\${item.vote_count}</div>
-                                            <p class="text-sm text-gray-600">득표</p>
-                                        </div>
+                                        <div class="text-2xl font-bold text-pink-600">\${item.vote_count}</div>
                                     </div>
                                 </div>
                             \`;
