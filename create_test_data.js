@@ -27,13 +27,13 @@ function getRandomMBTI() {
 }
 
 async function createParticipants() {
-    console.log('🚀 48명의 참가자 생성 시작...\n');
+    console.log('🚀 34명의 참가자 생성 시작...\n');
     
     const participants = [];
     
-    // 24명 남성, 24명 여성
-    for (let i = 0; i < 48; i++) {
-        const gender = i < 24 ? 'male' : 'female';
+    // 20명 남성, 14명 여성 (4개 팀 6명(남3여3) + 2개 팀 5명(남3여2))
+    for (let i = 0; i < 34; i++) {
+        const gender = i < 20 ? 'male' : 'female';
         const nickname = generateName(gender, i);
         const mbti = getRandomMBTI();
         
@@ -54,10 +54,10 @@ async function createParticipants() {
             
             if (data.success) {
                 participants.push({ nickname, gender, mbti, id: data.id });
-                console.log(`✅ ${i + 1}/48: ${nickname} (${gender === 'male' ? '남' : '여'}, ${mbti})`);
+                console.log(`✅ ${i + 1}/34: ${nickname} (${gender === 'male' ? '남' : '여'}, ${mbti})`);
             }
         } catch (error) {
-            console.log(`❌ ${i + 1}/48: ${nickname} - 실패:`, error.message);
+            console.log(`❌ ${i + 1}/34: ${nickname} - 실패:`, error.message);
         }
         
         await new Promise(resolve => setTimeout(resolve, 50));
@@ -271,7 +271,7 @@ async function showStatistics() {
 
 async function main() {
     console.log('\n' + '='.repeat(60));
-    console.log('🎉 YEONBAM SEASON 2 AI - 테스트 데이터 생성 시작 (48명)');
+    console.log('🎉 YEONBAM SEASON 2 AI - 테스트 데이터 생성 시작 (34명, 혼합 팀)');
     console.log('='.repeat(60) + '\n');
     
     try {

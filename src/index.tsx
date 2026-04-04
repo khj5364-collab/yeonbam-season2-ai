@@ -415,8 +415,8 @@ app.post('/api/admin/team-settings', async (c) => {
       return c.json({ success: false, message: '관리자 권한이 없습니다.' }, 403)
     }
 
-    if (![6, 7, 8].includes(maxTeamSize)) {
-      return c.json({ success: false, message: '팀당 인원은 6, 7, 8명 중 선택해주세요.' }, 400)
+    if (![5, 6].includes(maxTeamSize)) {
+      return c.json({ success: false, message: '팀당 인원은 5명 또는 6명 중 선택해주세요.' }, 400)
     }
 
     await c.env.DB.prepare(`
@@ -616,32 +616,44 @@ app.post('/api/admin/assign-teams', async (c) => {
     // 각 팀의 I 카운트 추적
     const teamICounts = { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0, 6: 0 }
 
-    // 팀당 목표 인원 계산 (균등 분배)
+    // 팀당 목표 인원 계산 (균등 분배, 5-6명 제한)
     const baseSize = Math.floor(participants.length / 6)  // 기본 인원
     const extraMembers = participants.length % 6          // 추가로 1명씩 들어갈 팀 수
     const teamSizeLimits: any = {}
     
     for (let t = 1; t <= 6; t++) {
       // 처음 extraMembers개 팀은 baseSize + 1명, 나머지는 baseSize명
-      teamSizeLimits[t] = t <= extraMembers ? baseSize + 1 : baseSize
+      let targetSize = t <= extraMembers ? baseSize + 1 : baseSize
+      
+      // 5-6명 제한 적용
+      if (targetSize > 6) {
+        targetSize = 6
+      } else if (targetSize < 5) {
+        targetSize = 5
+      }
+      
+      teamSizeLimits[t] = targetSize
     }
 
     // 성비 균형 체크 함수
-    // 기본 팀 구성: 6명 (남3, 여3)
-    // 차단: 남4여2 (남성이 2명 이상 많음)
-    // 허용: 남3여3, 남2여4 (여성이 많은 것은 허용)
-    const checkGenderBalance = (team: any[], newPerson: any) => {
+    // 6명 팀: 남3여3
+    // 5명 팀: 남3여2
+    const checkGenderBalance = (team: any[], newPerson: any, targetSize: number) => {
       const maleCount = team.filter((p: any) => p.gender === 'male').length + (newPerson.gender === 'male' ? 1 : 0)
       const femaleCount = team.filter((p: any) => p.gender === 'female').length + (newPerson.gender === 'female' ? 1 : 0)
       
-      // 남성이 여성보다 2명 이상 많으면 차단
-      // 예: 남4여2 ❌, 남5여3 ❌, 남3여2 ✅
-      if (maleCount - femaleCount >= 2) {
-        return false
+      if (targetSize === 6) {
+        // 6명 팀: 남3여3 (완전 균형)
+        if (maleCount > 3 || femaleCount > 3) {
+          return false
+        }
+      } else if (targetSize === 5) {
+        // 5명 팀: 남3여2
+        if (maleCount > 3 || femaleCount > 2) {
+          return false
+        }
       }
       
-      // 여성이 많은 것은 허용
-      // 예: 남2여4 ✅, 남3여3 ✅
       return true
     }
 
@@ -658,7 +670,7 @@ app.post('/api/admin/assign-teams', async (c) => {
         }
 
         // 성비 균형 체크
-        if (!checkGenderBalance(teamAssignments[t], person)) {
+        if (!checkGenderBalance(teamAssignments[t], person, teamSizeLimits[t])) {
           continue // 성비가 불균형하면 이 팀은 제외
         }
 
@@ -699,7 +711,7 @@ app.post('/api/admin/assign-teams', async (c) => {
         // 성비 제약은 반드시 지키면서 인원이 적은 팀 찾기
         let minSize = 100
         for (let t = 1; t <= 6; t++) {
-          if (teamAssignments[t].length < teamSizeLimits[t] && checkGenderBalance(teamAssignments[t], person)) {
+          if (teamAssignments[t].length < teamSizeLimits[t] && checkGenderBalance(teamAssignments[t], person, teamSizeLimits[t])) {
             if (teamAssignments[t].length < minSize) {
               minSize = teamAssignments[t].length
               bestTeam = t
@@ -711,7 +723,7 @@ app.post('/api/admin/assign-teams', async (c) => {
         if (minSize === 100) {
           for (let t = 1; t <= 6; t++) {
             // 팀 크기와 성비 제약은 반드시 지킴
-            if (teamAssignments[t].length < teamSizeLimits[t] && checkGenderBalance(teamAssignments[t], person)) {
+            if (teamAssignments[t].length < teamSizeLimits[t] && checkGenderBalance(teamAssignments[t], person, teamSizeLimits[t])) {
               minSize = teamAssignments[t].length
               bestTeam = t
               break
