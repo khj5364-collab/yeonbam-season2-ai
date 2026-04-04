@@ -1884,6 +1884,9 @@ app.get('/', (c) => {
                         <a href="/vote" class="bg-orange-600 text-white px-6 py-3 rounded-lg font-semibold hover:bg-orange-700 transition duration-200">
                             <i class="fas fa-star mr-2"></i>호감도 투표하기
                         </a>
+                        <button onclick="openAdminMessageModal()" class="bg-green-600 text-white px-6 py-3 rounded-lg font-semibold hover:bg-green-700 transition duration-200">
+                            <i class="fas fa-comment-dots mr-2"></i>관리자에게 문의
+                        </button>
                         <a href="/" class="bg-gray-300 text-gray-700 px-6 py-3 rounded-lg font-semibold hover:bg-gray-400 transition duration-200">
                             <i class="fas fa-home mr-2"></i>홈으로
                         </a>
@@ -1908,6 +1911,9 @@ app.get('/', (c) => {
                         <a href="/vote" class="bg-orange-600 text-white px-6 py-3 rounded-lg font-semibold hover:bg-orange-700 transition duration-200">
                             <i class="fas fa-star mr-2"></i>호감도 투표하기
                         </a>
+                        <button onclick="openAdminMessageModal()" class="bg-green-600 text-white px-6 py-3 rounded-lg font-semibold hover:bg-green-700 transition duration-200">
+                            <i class="fas fa-comment-dots mr-2"></i>관리자에게 문의
+                        </button>
                         <a href="/" class="bg-gray-300 text-gray-700 px-6 py-3 rounded-lg font-semibold hover:bg-gray-400 transition duration-200">
                             <i class="fas fa-home mr-2"></i>홈으로
                         </a>
@@ -1920,6 +1926,31 @@ app.get('/', (c) => {
                 <a href="/admin" class="text-gray-600 hover:text-indigo-600 text-sm">
                     <i class="fas fa-cog mr-1"></i>관리자
                 </a>
+            </div>
+        </div>
+
+        <!-- 관리자 메시지 모달 -->
+        <div id="adminMessageModal" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+            <div class="bg-white rounded-2xl shadow-2xl p-8 max-w-md w-full mx-4">
+                <h2 class="text-2xl font-bold text-gray-800 mb-4">
+                    <i class="fas fa-comment-dots mr-2 text-green-600"></i>관리자에게 문의
+                </h2>
+                <div class="mb-4">
+                    <label class="block text-sm font-semibold text-gray-700 mb-2">메시지</label>
+                    <textarea id="adminMessageContent" rows="5" 
+                              placeholder="요청사항이나 문의사항을 입력해주세요..."
+                              class="w-full px-4 py-3 border-2 border-gray-300 rounded-lg focus:border-green-500 focus:outline-none"></textarea>
+                </div>
+                <div class="flex gap-3">
+                    <button onclick="sendAdminMessage()" 
+                            class="flex-1 bg-green-600 text-white py-3 rounded-lg font-semibold hover:bg-green-700 transition">
+                        <i class="fas fa-paper-plane mr-2"></i>전송
+                    </button>
+                    <button onclick="closeAdminMessageModal()" 
+                            class="flex-1 bg-gray-300 text-gray-700 py-3 rounded-lg font-semibold hover:bg-gray-400 transition">
+                        <i class="fas fa-times mr-2"></i>취소
+                    </button>
+                </div>
             </div>
         </div>
 
@@ -2091,6 +2122,75 @@ app.get('/', (c) => {
                 document.querySelectorAll('.step').forEach(el => el.classList.add('hidden'));
                 document.getElementById(\`step\${step}\`).classList.remove('hidden');
                 currentStep = step;
+            }
+
+            // 관리자 메시지 모달 함수
+            let currentUserData = null;
+
+            function openAdminMessageModal() {
+                // 현재 사용자 정보를 세션에서 가져오기
+                const savedCode = sessionStorage.getItem('userAccessCode');
+                const savedNickname = sessionStorage.getItem('userNickname');
+                
+                if (!savedCode || !savedNickname) {
+                    alert('로그인 정보를 찾을 수 없습니다. 다시 로그인해주세요.');
+                    return;
+                }
+                
+                currentUserData = { accessCode: savedCode, nickname: savedNickname };
+                document.getElementById('adminMessageModal').classList.remove('hidden');
+                document.getElementById('adminMessageContent').value = '';
+            }
+
+            function closeAdminMessageModal() {
+                document.getElementById('adminMessageModal').classList.add('hidden');
+                document.getElementById('adminMessageContent').value = '';
+            }
+
+            async function sendAdminMessage() {
+                const content = document.getElementById('adminMessageContent').value.trim();
+                
+                if (!content) {
+                    alert('메시지 내용을 입력해주세요.');
+                    return;
+                }
+
+                if (!currentUserData) {
+                    alert('사용자 정보를 찾을 수 없습니다.');
+                    return;
+                }
+
+                try {
+                    // 사용자 ID 가져오기
+                    const reentryResponse = await axios.post('/api/re-entry', {
+                        accessCode: currentUserData.accessCode,
+                        nickname: currentUserData.nickname
+                    });
+
+                    if (!reentryResponse.data.success || !reentryResponse.data.user) {
+                        alert('사용자 정보를 확인할 수 없습니다.');
+                        return;
+                    }
+
+                    const userId = reentryResponse.data.user.id;
+
+                    const response = await axios.post('/api/admin/send-message', {
+                        senderId: userId,
+                        senderNickname: currentUserData.nickname,
+                        accessCode: currentUserData.accessCode,
+                        content: content
+                    });
+
+                    if (response.data.success) {
+                        alert('관리자에게 메시지가 전송되었습니다!');
+                        closeAdminMessageModal();
+                    } else {
+                        alert(response.data.message || '메시지 전송에 실패했습니다.');
+                    }
+                } catch (error) {
+                    console.error('Error sending admin message:', error);
+                    alert('메시지 전송 중 오류가 발생했습니다.');
+                }
             }
         </script>
     </body>
@@ -2485,6 +2585,31 @@ app.get('/admin', (c) => {
                     </div>
                 </div>
 
+                <!-- 참가자 문의 메시지 -->
+                <div class="bg-white rounded-xl shadow-lg p-6">
+                    <div class="flex items-center justify-between mb-4">
+                        <h2 class="text-2xl font-bold text-gray-800">
+                            <i class="fas fa-envelope mr-2 text-green-600"></i>참가자 문의 메시지
+                        </h2>
+                        <button onclick="loadAdminMessages()" class="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition">
+                            <i class="fas fa-sync-alt mr-2"></i>새로고침
+                        </button>
+                    </div>
+                    <div class="mb-4">
+                        <label class="block text-sm font-semibold text-gray-700 mb-2">
+                            <i class="fas fa-filter mr-2"></i>코드 선택
+                        </label>
+                        <select id="adminMessagesCodeSelect" 
+                                onchange="loadAdminMessages()" 
+                                class="w-full px-4 py-3 border-2 border-gray-300 rounded-lg focus:border-green-500 focus:outline-none">
+                            <option value="">전체 보기</option>
+                        </select>
+                    </div>
+                    <div id="adminMessagesList" class="space-y-3">
+                        <p class="text-gray-500 text-center py-8">문의 메시지가 없습니다.</p>
+                    </div>
+                </div>
+
                 <div class="text-center mt-8">
                     <a href="/" class="inline-block bg-gray-600 text-white px-6 py-3 rounded-lg font-semibold hover:bg-gray-700 transition duration-200">
                         <i class="fas fa-home mr-2"></i>홈으로
@@ -2713,6 +2838,13 @@ app.get('/admin', (c) => {
                     const voteStatsCodeSelect = document.getElementById('voteStatsCodeSelect');
                     if (voteStatsCodeSelect) {
                         voteStatsCodeSelect.innerHTML = '<option value="">코드를 선택하세요</option>' +
+                            codes.map(code => \`<option value="\${code.code}">\${code.code} (\${code.valid_date}) - \${code.participant_count}명</option>\`).join('');
+                    }
+                    
+                    // 관리자 메시지 코드 select 옵션 업데이트
+                    const adminMessagesCodeSelect = document.getElementById('adminMessagesCodeSelect');
+                    if (adminMessagesCodeSelect) {
+                        adminMessagesCodeSelect.innerHTML = '<option value="">전체 보기</option>' +
                             codes.map(code => \`<option value="\${code.code}">\${code.code} (\${code.valid_date}) - \${code.participant_count}명</option>\`).join('');
                     }
                 } catch (error) {
@@ -3042,6 +3174,94 @@ app.get('/admin', (c) => {
                 } catch (error) {
                     console.error('Error loading vote stats:', error);
                     displayDiv.innerHTML = '<p class="text-red-500 text-center py-8">투표 통계 로딩 실패</p>';
+                }
+            }
+
+            async function loadAdminMessages() {
+                const accessCode = document.getElementById('adminMessagesCodeSelect').value;
+                const displayDiv = document.getElementById('adminMessagesList');
+
+                try {
+                    const response = await axios.get(\`/api/admin/messages?adminPassword=qwer1234&accessCode=\${accessCode}\`);
+                    const messages = response.data.messages || [];
+
+                    if (messages.length === 0) {
+                        displayDiv.innerHTML = '<p class="text-gray-500 text-center py-8">문의 메시지가 없습니다.</p>';
+                        return;
+                    }
+
+                    displayDiv.innerHTML = messages.map(msg => {
+                        const isRead = msg.is_read === 1;
+                        const bgColor = isRead ? 'bg-gray-50' : 'bg-green-50';
+                        const borderColor = isRead ? 'border-gray-300' : 'border-green-300';
+                        
+                        return \`
+                            <div class="border-2 \${borderColor} \${bgColor} rounded-lg p-4">
+                                <div class="flex items-start justify-between mb-2">
+                                    <div>
+                                        <span class="font-semibold text-gray-800">\${msg.sender_nickname}</span>
+                                        <span class="text-sm text-gray-600 ml-2">(\${msg.access_code})</span>
+                                        \${!isRead ? '<span class="ml-2 bg-green-600 text-white text-xs px-2 py-1 rounded">NEW</span>' : ''}
+                                    </div>
+                                    <span class="text-xs text-gray-500">\${new Date(msg.created_at).toLocaleString('ko-KR')}</span>
+                                </div>
+                                <p class="text-gray-700 mb-3 whitespace-pre-wrap">\${msg.content}</p>
+                                <div class="flex gap-2">
+                                    \${!isRead ? \`
+                                        <button onclick="markAdminMessageAsRead(\${msg.id})" 
+                                                class="bg-blue-600 text-white px-3 py-1 rounded text-sm hover:bg-blue-700">
+                                            <i class="fas fa-check mr-1"></i>읽음 처리
+                                        </button>
+                                    \` : ''}
+                                    <button onclick="deleteAdminMessage(\${msg.id})" 
+                                            class="bg-red-600 text-white px-3 py-1 rounded text-sm hover:bg-red-700">
+                                        <i class="fas fa-trash mr-1"></i>삭제
+                                    </button>
+                                </div>
+                            </div>
+                        \`;
+                    }).join('');
+                } catch (error) {
+                    console.error('Error loading admin messages:', error);
+                    displayDiv.innerHTML = '<p class="text-red-500 text-center py-8">메시지 로딩 실패</p>';
+                }
+            }
+
+            async function markAdminMessageAsRead(messageId) {
+                if (!confirm('이 메시지를 읽음 처리하시겠습니까?')) return;
+
+                try {
+                    const response = await axios.post(\`/api/admin/messages/\${messageId}/read\`, {
+                        adminPassword: 'qwer1234'
+                    });
+
+                    if (response.data.success) {
+                        loadAdminMessages();
+                    } else {
+                        alert(response.data.message || '읽음 처리 실패');
+                    }
+                } catch (error) {
+                    console.error('Error marking message as read:', error);
+                    alert('읽음 처리 중 오류가 발생했습니다.');
+                }
+            }
+
+            async function deleteAdminMessage(messageId) {
+                if (!confirm('이 메시지를 삭제하시겠습니까?')) return;
+
+                try {
+                    const response = await axios.delete(\`/api/admin/messages/\${messageId}\`, {
+                        data: { adminPassword: 'qwer1234' }
+                    });
+
+                    if (response.data.success) {
+                        loadAdminMessages();
+                    } else {
+                        alert(response.data.message || '삭제 실패');
+                    }
+                } catch (error) {
+                    console.error('Error deleting message:', error);
+                    alert('삭제 중 오류가 발생했습니다.');
                 }
             }
         </script>
@@ -3391,6 +3611,103 @@ app.post('/api/admin/votes/reset', async (c) => {
     return c.json({ success: true, message: '투표가 초기화되었습니다.' })
   } catch (error) {
     console.error('Error resetting votes:', error)
+    return c.json({ success: false, message: '서버 오류가 발생했습니다.' }, 500)
+  }
+})
+
+// 관리자에게 메시지 보내기
+app.post('/api/admin/send-message', async (c) => {
+  try {
+    const { senderId, senderNickname, accessCode, content } = await c.req.json()
+
+    if (!senderId || !senderNickname || !accessCode || !content) {
+      return c.json({ success: false, message: '모든 필드를 입력해주세요.' }, 400)
+    }
+
+    if (content.trim().length === 0) {
+      return c.json({ success: false, message: '메시지 내용을 입력해주세요.' }, 400)
+    }
+
+    await c.env.DB.prepare(`
+      INSERT INTO admin_messages (sender_id, sender_nickname, access_code, content)
+      VALUES (?, ?, ?, ?)
+    `).bind(senderId, senderNickname, accessCode, content.trim()).run()
+
+    return c.json({ success: true, message: '관리자에게 메시지가 전송되었습니다.' })
+  } catch (error) {
+    console.error('Error sending admin message:', error)
+    return c.json({ success: false, message: '서버 오류가 발생했습니다.' }, 500)
+  }
+})
+
+// 관리자 메시지 목록 조회
+app.get('/api/admin/messages', async (c) => {
+  try {
+    const { adminPassword, accessCode } = c.req.query()
+
+    if (adminPassword !== 'qwer1234') {
+      return c.json({ success: false, message: '관리자 권한이 없습니다.' }, 403)
+    }
+
+    const { results } = await c.env.DB.prepare(`
+      SELECT 
+        id,
+        sender_id,
+        sender_nickname,
+        access_code,
+        content,
+        is_read,
+        created_at
+      FROM admin_messages
+      WHERE (? = '' OR access_code = ?)
+      ORDER BY created_at DESC
+    `).bind(accessCode || '', accessCode || '').all()
+
+    return c.json({ success: true, messages: results })
+  } catch (error) {
+    console.error('Error fetching admin messages:', error)
+    return c.json({ success: false, message: '서버 오류가 발생했습니다.' }, 500)
+  }
+})
+
+// 관리자 메시지 읽음 처리
+app.post('/api/admin/messages/:id/read', async (c) => {
+  try {
+    const { adminPassword } = await c.req.json()
+    const messageId = c.req.param('id')
+
+    if (adminPassword !== 'qwer1234') {
+      return c.json({ success: false, message: '관리자 권한이 없습니다.' }, 403)
+    }
+
+    await c.env.DB.prepare(`
+      UPDATE admin_messages SET is_read = 1 WHERE id = ?
+    `).bind(messageId).run()
+
+    return c.json({ success: true, message: '메시지를 읽음 처리했습니다.' })
+  } catch (error) {
+    console.error('Error marking message as read:', error)
+    return c.json({ success: false, message: '서버 오류가 발생했습니다.' }, 500)
+  }
+})
+
+// 관리자 메시지 삭제
+app.delete('/api/admin/messages/:id', async (c) => {
+  try {
+    const { adminPassword } = await c.req.json()
+    const messageId = c.req.param('id')
+
+    if (adminPassword !== 'qwer1234') {
+      return c.json({ success: false, message: '관리자 권한이 없습니다.' }, 403)
+    }
+
+    await c.env.DB.prepare(`
+      DELETE FROM admin_messages WHERE id = ?
+    `).bind(messageId).run()
+
+    return c.json({ success: true, message: '메시지가 삭제되었습니다.' })
+  } catch (error) {
+    console.error('Error deleting admin message:', error)
     return c.json({ success: false, message: '서버 오류가 발생했습니다.' }, 500)
   }
 })
