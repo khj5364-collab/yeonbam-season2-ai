@@ -851,10 +851,11 @@ app.get('/messages', (c) => {
         <link href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.4.0/css/all.min.css" rel="stylesheet">
     </head>
     <body class="bg-gradient-to-br from-purple-50 to-pink-100 min-h-screen">
-        <div class="container mx-auto px-4 py-8">
-            <div class="max-w-4xl mx-auto">
+        <!-- 로그인 화면 -->
+        <div id="loginScreen" class="container mx-auto px-4 py-8">
+            <div class="max-w-md mx-auto">
                 <div class="bg-white rounded-2xl shadow-xl p-8">
-                    <h1 class="text-3xl font-bold text-purple-800 mb-6">
+                    <h1 class="text-3xl font-bold text-purple-800 mb-6 text-center">
                         <i class="fas fa-envelope mr-2"></i>익명 쪽지
                     </h1>
                     
@@ -863,15 +864,267 @@ app.get('/messages', (c) => {
                         <p class="text-purple-700 text-sm mt-2">쌍방향으로 쪽지를 주고받으면 관리자가 확인할 수 있습니다.</p>
                     </div>
 
-                    <div class="text-center">
-                        <p class="text-gray-700 mb-4">로그인 후 이용 가능합니다.</p>
-                        <a href="/" class="inline-block bg-purple-600 text-white px-6 py-3 rounded-lg hover:bg-purple-700">
+                    <div class="space-y-4">
+                        <div>
+                            <label class="block text-sm font-semibold text-gray-700 mb-2">일일 코드</label>
+                            <input type="text" id="loginCode" placeholder="코드 입력" 
+                                   class="w-full px-4 py-3 border-2 border-gray-300 rounded-lg focus:border-purple-500 focus:outline-none">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-semibold text-gray-700 mb-2">닉네임</label>
+                            <input type="text" id="loginNickname" placeholder="닉네임 입력" 
+                                   class="w-full px-4 py-3 border-2 border-gray-300 rounded-lg focus:border-purple-500 focus:outline-none">
+                        </div>
+                        <button onclick="login()" class="w-full bg-purple-600 text-white py-3 rounded-lg font-semibold hover:bg-purple-700 transition">
+                            <i class="fas fa-sign-in-alt mr-2"></i>로그인
+                        </button>
+                        <a href="/" class="block text-center text-gray-600 hover:text-purple-600">
                             <i class="fas fa-home mr-2"></i>홈으로
                         </a>
                     </div>
                 </div>
             </div>
         </div>
+
+        <!-- 메인 화면 -->
+        <div id="mainScreen" class="hidden">
+            <div class="container mx-auto px-4 py-8">
+                <div class="max-w-6xl mx-auto">
+                    <!-- 헤더 -->
+                    <div class="bg-white rounded-2xl shadow-xl p-6 mb-6">
+                        <div class="flex items-center justify-between">
+                            <div>
+                                <h1 class="text-3xl font-bold text-purple-800">
+                                    <i class="fas fa-envelope mr-2"></i>익명 쪽지
+                                </h1>
+                                <p class="text-gray-600 mt-1">안녕하세요, <span id="userNickname" class="font-semibold text-purple-600"></span>님!</p>
+                            </div>
+                            <button onclick="logout()" class="bg-gray-500 text-white px-4 py-2 rounded-lg hover:bg-gray-600">
+                                <i class="fas fa-sign-out-alt mr-2"></i>로그아웃
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- 탭 메뉴 -->
+                    <div class="bg-white rounded-2xl shadow-xl mb-6">
+                        <div class="flex border-b">
+                            <button onclick="showTab('inbox')" id="tabInbox" class="flex-1 py-4 px-6 font-semibold text-purple-600 border-b-2 border-purple-600">
+                                <i class="fas fa-inbox mr-2"></i>받은 쪽지
+                            </button>
+                            <button onclick="showTab('sent')" id="tabSent" class="flex-1 py-4 px-6 font-semibold text-gray-600 hover:text-purple-600">
+                                <i class="fas fa-paper-plane mr-2"></i>보낸 쪽지
+                            </button>
+                            <button onclick="showTab('write')" id="tabWrite" class="flex-1 py-4 px-6 font-semibold text-gray-600 hover:text-purple-600">
+                                <i class="fas fa-edit mr-2"></i>쪽지 쓰기
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- 받은 쪽지 -->
+                    <div id="contentInbox" class="bg-white rounded-2xl shadow-xl p-6">
+                        <h2 class="text-2xl font-bold text-gray-800 mb-4">
+                            <i class="fas fa-inbox mr-2"></i>받은 쪽지
+                        </h2>
+                        <div id="inboxList" class="space-y-3">
+                            <p class="text-gray-500 text-center py-8">받은 쪽지가 없습니다.</p>
+                        </div>
+                    </div>
+
+                    <!-- 보낸 쪽지 -->
+                    <div id="contentSent" class="hidden bg-white rounded-2xl shadow-xl p-6">
+                        <h2 class="text-2xl font-bold text-gray-800 mb-4">
+                            <i class="fas fa-paper-plane mr-2"></i>보낸 쪽지
+                        </h2>
+                        <div id="sentList" class="space-y-3">
+                            <p class="text-gray-500 text-center py-8">보낸 쪽지가 없습니다.</p>
+                        </div>
+                    </div>
+
+                    <!-- 쪽지 쓰기 -->
+                    <div id="contentWrite" class="hidden bg-white rounded-2xl shadow-xl p-6">
+                        <h2 class="text-2xl font-bold text-gray-800 mb-4">
+                            <i class="fas fa-edit mr-2"></i>쪽지 쓰기
+                        </h2>
+                        <div class="space-y-4">
+                            <div>
+                                <label class="block text-sm font-semibold text-gray-700 mb-2">받는 사람 닉네임</label>
+                                <input type="text" id="receiverNickname" placeholder="닉네임 입력" 
+                                       class="w-full px-4 py-3 border-2 border-gray-300 rounded-lg focus:border-purple-500 focus:outline-none">
+                            </div>
+                            <div>
+                                <label class="block text-sm font-semibold text-gray-700 mb-2">쪽지 내용</label>
+                                <textarea id="messageContent" rows="6" placeholder="쪽지 내용을 입력하세요..." 
+                                          class="w-full px-4 py-3 border-2 border-gray-300 rounded-lg focus:border-purple-500 focus:outline-none"></textarea>
+                            </div>
+                            <button onclick="sendMessage()" class="w-full bg-purple-600 text-white py-3 rounded-lg font-semibold hover:bg-purple-700 transition">
+                                <i class="fas fa-paper-plane mr-2"></i>쪽지 보내기
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <script src="https://cdn.jsdelivr.net/npm/axios@1.6.0/dist/axios.min.js"></script>
+        <script>
+            let currentUser = null;
+            let currentAccessCode = null;
+
+            async function login() {
+                const code = document.getElementById('loginCode').value.trim();
+                const nickname = document.getElementById('loginNickname').value.trim();
+
+                if (!code || !nickname) {
+                    alert('코드와 닉네임을 입력해주세요.');
+                    return;
+                }
+
+                try {
+                    const response = await axios.post('/api/re-entry', { accessCode: code, nickname });
+                    
+                    if (response.data.success && response.data.user) {
+                        currentUser = response.data.user;
+                        currentAccessCode = code;
+                        
+                        document.getElementById('loginScreen').classList.add('hidden');
+                        document.getElementById('mainScreen').classList.remove('hidden');
+                        document.getElementById('userNickname').textContent = nickname;
+                        
+                        loadInbox();
+                    }
+                } catch (error) {
+                    alert(error.response?.data?.message || '로그인 실패. 코드와 닉네임을 확인해주세요.');
+                }
+            }
+
+            function logout() {
+                if (confirm('로그아웃 하시겠습니까?')) {
+                    currentUser = null;
+                    currentAccessCode = null;
+                    document.getElementById('loginScreen').classList.remove('hidden');
+                    document.getElementById('mainScreen').classList.add('hidden');
+                    document.getElementById('loginCode').value = '';
+                    document.getElementById('loginNickname').value = '';
+                }
+            }
+
+            function showTab(tab) {
+                // 탭 버튼 스타일
+                document.querySelectorAll('[id^="tab"]').forEach(btn => {
+                    btn.classList.remove('text-purple-600', 'border-b-2', 'border-purple-600');
+                    btn.classList.add('text-gray-600');
+                });
+                document.getElementById('tab' + tab.charAt(0).toUpperCase() + tab.slice(1)).classList.add('text-purple-600', 'border-b-2', 'border-purple-600');
+                document.getElementById('tab' + tab.charAt(0).toUpperCase() + tab.slice(1)).classList.remove('text-gray-600');
+
+                // 콘텐츠 표시
+                document.getElementById('contentInbox').classList.add('hidden');
+                document.getElementById('contentSent').classList.add('hidden');
+                document.getElementById('contentWrite').classList.add('hidden');
+                document.getElementById('content' + tab.charAt(0).toUpperCase() + tab.slice(1)).classList.remove('hidden');
+
+                if (tab === 'inbox') loadInbox();
+                else if (tab === 'sent') loadSent();
+            }
+
+            async function loadInbox() {
+                if (!currentUser) return;
+                
+                try {
+                    const response = await axios.get(\`/api/messages/received/\${currentUser.id}\`);
+                    const messages = response.data.messages || [];
+                    
+                    const listDiv = document.getElementById('inboxList');
+                    if (messages.length === 0) {
+                        listDiv.innerHTML = '<p class="text-gray-500 text-center py-8">받은 쪽지가 없습니다.</p>';
+                        return;
+                    }
+
+                    listDiv.innerHTML = messages.map(msg => \`
+                        <div class="border-2 \${msg.is_read ? 'border-gray-300 bg-gray-50' : 'border-purple-300 bg-purple-50'} rounded-lg p-4">
+                            <div class="flex items-center justify-between mb-2">
+                                <span class="font-semibold text-purple-600">
+                                    <i class="fas fa-user-secret mr-2"></i>익명
+                                </span>
+                                <span class="text-sm text-gray-500">\${new Date(msg.created_at).toLocaleString('ko-KR')}</span>
+                            </div>
+                            <p class="text-gray-800">\${msg.content}</p>
+                            \${!msg.is_read ? '<button onclick="markAsRead(' + msg.id + ')" class="mt-2 text-sm text-purple-600 hover:text-purple-800"><i class="fas fa-check mr-1"></i>읽음 표시</button>' : ''}
+                        </div>
+                    \`).join('');
+                } catch (error) {
+                    console.error('Error loading inbox:', error);
+                }
+            }
+
+            async function loadSent() {
+                if (!currentUser) return;
+                
+                try {
+                    const response = await axios.get(\`/api/messages/sent/\${currentUser.id}\`);
+                    const messages = response.data.messages || [];
+                    
+                    const listDiv = document.getElementById('sentList');
+                    if (messages.length === 0) {
+                        listDiv.innerHTML = '<p class="text-gray-500 text-center py-8">보낸 쪽지가 없습니다.</p>';
+                        return;
+                    }
+
+                    listDiv.innerHTML = messages.map(msg => \`
+                        <div class="border-2 border-gray-300 rounded-lg p-4 bg-gray-50">
+                            <div class="flex items-center justify-between mb-2">
+                                <span class="font-semibold text-gray-600">
+                                    <i class="fas fa-user-secret mr-2"></i>익명 (수신자)
+                                </span>
+                                <span class="text-sm text-gray-500">\${new Date(msg.created_at).toLocaleString('ko-KR')}</span>
+                            </div>
+                            <p class="text-gray-800">\${msg.content}</p>
+                        </div>
+                    \`).join('');
+                } catch (error) {
+                    console.error('Error loading sent messages:', error);
+                }
+            }
+
+            async function sendMessage() {
+                if (!currentUser) return;
+
+                const receiverNickname = document.getElementById('receiverNickname').value.trim();
+                const content = document.getElementById('messageContent').value.trim();
+
+                if (!receiverNickname || !content) {
+                    alert('받는 사람과 내용을 입력해주세요.');
+                    return;
+                }
+
+                try {
+                    const response = await axios.post('/api/messages/send', {
+                        senderId: currentUser.id,
+                        receiverNickname,
+                        accessCode: currentAccessCode,
+                        content
+                    });
+
+                    if (response.data.success) {
+                        alert('쪽지를 보냈습니다!');
+                        document.getElementById('receiverNickname').value = '';
+                        document.getElementById('messageContent').value = '';
+                        showTab('sent');
+                    }
+                } catch (error) {
+                    alert(error.response?.data?.message || '쪽지 전송 실패');
+                }
+            }
+
+            async function markAsRead(messageId) {
+                try {
+                    await axios.post(\`/api/messages/mark-read/\${messageId}\`);
+                    loadInbox();
+                } catch (error) {
+                    console.error('Error marking as read:', error);
+                }
+            }
+        </script>
     </body>
     </html>
   `)
@@ -890,10 +1143,11 @@ app.get('/vote', (c) => {
         <link href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.4.0/css/all.min.css" rel="stylesheet">
     </head>
     <body class="bg-gradient-to-br from-yellow-50 to-orange-100 min-h-screen">
-        <div class="container mx-auto px-4 py-8">
-            <div class="max-w-4xl mx-auto">
+        <!-- 로그인 화면 -->
+        <div id="loginScreen" class="container mx-auto px-4 py-8">
+            <div class="max-w-md mx-auto">
                 <div class="bg-white rounded-2xl shadow-xl p-8">
-                    <h1 class="text-3xl font-bold text-orange-800 mb-6">
+                    <h1 class="text-3xl font-bold text-orange-800 mb-6 text-center">
                         <i class="fas fa-star mr-2"></i>호감도 투표
                     </h1>
                     
@@ -902,15 +1156,318 @@ app.get('/vote', (c) => {
                         <p class="text-orange-700 text-sm mt-2">투표 결과는 익명으로 집계됩니다.</p>
                     </div>
 
-                    <div class="text-center">
-                        <p class="text-gray-700 mb-4">로그인 후 이용 가능합니다.</p>
-                        <a href="/" class="inline-block bg-orange-600 text-white px-6 py-3 rounded-lg hover:bg-orange-700">
+                    <div class="space-y-4">
+                        <div>
+                            <label class="block text-sm font-semibold text-gray-700 mb-2">일일 코드</label>
+                            <input type="text" id="loginCode" placeholder="코드 입력" 
+                                   class="w-full px-4 py-3 border-2 border-gray-300 rounded-lg focus:border-orange-500 focus:outline-none">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-semibold text-gray-700 mb-2">닉네임</label>
+                            <input type="text" id="loginNickname" placeholder="닉네임 입력" 
+                                   class="w-full px-4 py-3 border-2 border-gray-300 rounded-lg focus:border-orange-500 focus:outline-none">
+                        </div>
+                        <button onclick="login()" class="w-full bg-orange-600 text-white py-3 rounded-lg font-semibold hover:bg-orange-700 transition">
+                            <i class="fas fa-sign-in-alt mr-2"></i>로그인
+                        </button>
+                        <a href="/" class="block text-center text-gray-600 hover:text-orange-600">
                             <i class="fas fa-home mr-2"></i>홈으로
                         </a>
                     </div>
                 </div>
             </div>
         </div>
+
+        <!-- 메인 화면 -->
+        <div id="mainScreen" class="hidden">
+            <div class="container mx-auto px-4 py-8">
+                <div class="max-w-6xl mx-auto">
+                    <!-- 헤더 -->
+                    <div class="bg-white rounded-2xl shadow-xl p-6 mb-6">
+                        <div class="flex items-center justify-between">
+                            <div>
+                                <h1 class="text-3xl font-bold text-orange-800">
+                                    <i class="fas fa-star mr-2"></i>호감도 투표
+                                </h1>
+                                <p class="text-gray-600 mt-1">안녕하세요, <span id="userNickname" class="font-semibold text-orange-600"></span>님!</p>
+                            </div>
+                            <button onclick="logout()" class="bg-gray-500 text-white px-4 py-2 rounded-lg hover:bg-gray-600">
+                                <i class="fas fa-sign-out-alt mr-2"></i>로그아웃
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- 탭 메뉴 -->
+                    <div class="bg-white rounded-2xl shadow-xl mb-6">
+                        <div class="flex border-b">
+                            <button onclick="showTab('vote')" id="tabVote" class="flex-1 py-4 px-6 font-semibold text-orange-600 border-b-2 border-orange-600">
+                                <i class="fas fa-vote-yea mr-2"></i>투표하기
+                            </button>
+                            <button onclick="showTab('myvotes')" id="tabMyvotes" class="flex-1 py-4 px-6 font-semibold text-gray-600 hover:text-orange-600">
+                                <i class="fas fa-list mr-2"></i>내 투표
+                            </button>
+                            <button onclick="showTab('myscore')" id="tabMyscore" class="flex-1 py-4 px-6 font-semibold text-gray-600 hover:text-orange-600">
+                                <i class="fas fa-heart mr-2"></i>내 득표
+                            </button>
+                            <button onclick="showTab('ranking')" id="tabRanking" class="flex-1 py-4 px-6 font-semibold text-gray-600 hover:text-orange-600">
+                                <i class="fas fa-trophy mr-2"></i>랭킹
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- 투표하기 -->
+                    <div id="contentVote" class="bg-white rounded-2xl shadow-xl p-6">
+                        <h2 class="text-2xl font-bold text-gray-800 mb-4">
+                            <i class="fas fa-vote-yea mr-2"></i>투표하기 (최대 3명)
+                        </h2>
+                        <div class="space-y-4">
+                            <div>
+                                <label class="block text-sm font-semibold text-gray-700 mb-2">1번째 투표</label>
+                                <input type="text" id="votee1" placeholder="닉네임 입력" 
+                                       class="w-full px-4 py-3 border-2 border-gray-300 rounded-lg focus:border-orange-500 focus:outline-none">
+                            </div>
+                            <div>
+                                <label class="block text-sm font-semibold text-gray-700 mb-2">2번째 투표 (선택)</label>
+                                <input type="text" id="votee2" placeholder="닉네임 입력" 
+                                       class="w-full px-4 py-3 border-2 border-gray-300 rounded-lg focus:border-orange-500 focus:outline-none">
+                            </div>
+                            <div>
+                                <label class="block text-sm font-semibold text-gray-700 mb-2">3번째 투표 (선택)</label>
+                                <input type="text" id="votee3" placeholder="닉네임 입력" 
+                                       class="w-full px-4 py-3 border-2 border-gray-300 rounded-lg focus:border-orange-500 focus:outline-none">
+                            </div>
+                            <button onclick="submitVote()" class="w-full bg-orange-600 text-white py-3 rounded-lg font-semibold hover:bg-orange-700 transition">
+                                <i class="fas fa-check mr-2"></i>투표 제출
+                            </button>
+                            <p class="text-sm text-gray-600 text-center">
+                                <i class="fas fa-info-circle mr-1"></i>투표는 수정할 수 있습니다. 기존 투표를 삭제하고 다시 제출하세요.
+                            </p>
+                        </div>
+                    </div>
+
+                    <!-- 내 투표 -->
+                    <div id="contentMyvotes" class="hidden bg-white rounded-2xl shadow-xl p-6">
+                        <h2 class="text-2xl font-bold text-gray-800 mb-4">
+                            <i class="fas fa-list mr-2"></i>내 투표 목록
+                        </h2>
+                        <div id="myVotesList" class="space-y-3">
+                            <p class="text-gray-500 text-center py-8">투표 내역이 없습니다.</p>
+                        </div>
+                    </div>
+
+                    <!-- 내 득표 -->
+                    <div id="contentMyscore" class="hidden bg-white rounded-2xl shadow-xl p-6">
+                        <h2 class="text-2xl font-bold text-gray-800 mb-4">
+                            <i class="fas fa-heart mr-2"></i>내가 받은 득표
+                        </h2>
+                        <div id="myScoreDisplay" class="text-center py-8">
+                            <div class="text-6xl font-bold text-orange-600 mb-2">0</div>
+                            <p class="text-gray-600">득표수</p>
+                        </div>
+                    </div>
+
+                    <!-- 랭킹 -->
+                    <div id="contentRanking" class="hidden bg-white rounded-2xl shadow-xl p-6">
+                        <h2 class="text-2xl font-bold text-gray-800 mb-4">
+                            <i class="fas fa-trophy mr-2"></i>호감도 랭킹 TOP 10
+                        </h2>
+                        <div id="rankingList" class="space-y-3">
+                            <p class="text-gray-500 text-center py-8">랭킹 정보가 없습니다.</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <script src="https://cdn.jsdelivr.net/npm/axios@1.6.0/dist/axios.min.js"></script>
+        <script>
+            let currentUser = null;
+            let currentAccessCode = null;
+
+            async function login() {
+                const code = document.getElementById('loginCode').value.trim();
+                const nickname = document.getElementById('loginNickname').value.trim();
+
+                if (!code || !nickname) {
+                    alert('코드와 닉네임을 입력해주세요.');
+                    return;
+                }
+
+                try {
+                    const response = await axios.post('/api/re-entry', { accessCode: code, nickname });
+                    
+                    if (response.data.success && response.data.user) {
+                        currentUser = response.data.user;
+                        currentAccessCode = code;
+                        
+                        document.getElementById('loginScreen').classList.add('hidden');
+                        document.getElementById('mainScreen').classList.remove('hidden');
+                        document.getElementById('userNickname').textContent = nickname;
+                        
+                        loadMyVotes();
+                    }
+                } catch (error) {
+                    alert(error.response?.data?.message || '로그인 실패. 코드와 닉네임을 확인해주세요.');
+                }
+            }
+
+            function logout() {
+                if (confirm('로그아웃 하시겠습니까?')) {
+                    currentUser = null;
+                    currentAccessCode = null;
+                    document.getElementById('loginScreen').classList.remove('hidden');
+                    document.getElementById('mainScreen').classList.add('hidden');
+                    document.getElementById('loginCode').value = '';
+                    document.getElementById('loginNickname').value = '';
+                }
+            }
+
+            function showTab(tab) {
+                // 탭 버튼 스타일
+                document.querySelectorAll('[id^="tab"]').forEach(btn => {
+                    btn.classList.remove('text-orange-600', 'border-b-2', 'border-orange-600');
+                    btn.classList.add('text-gray-600');
+                });
+                const tabId = 'tab' + tab.charAt(0).toUpperCase() + tab.slice(1);
+                document.getElementById(tabId).classList.add('text-orange-600', 'border-b-2', 'border-orange-600');
+                document.getElementById(tabId).classList.remove('text-gray-600');
+
+                // 콘텐츠 표시
+                document.getElementById('contentVote').classList.add('hidden');
+                document.getElementById('contentMyvotes').classList.add('hidden');
+                document.getElementById('contentMyscore').classList.add('hidden');
+                document.getElementById('contentRanking').classList.add('hidden');
+                const contentId = 'content' + tab.charAt(0).toUpperCase() + tab.slice(1);
+                document.getElementById(contentId).classList.remove('hidden');
+
+                if (tab === 'myvotes') loadMyVotes();
+                else if (tab === 'myscore') loadMyScore();
+                else if (tab === 'ranking') loadRanking();
+            }
+
+            async function submitVote() {
+                if (!currentUser) return;
+
+                const votee1 = document.getElementById('votee1').value.trim();
+                const votee2 = document.getElementById('votee2').value.trim();
+                const votee3 = document.getElementById('votee3').value.trim();
+
+                const voteeNicknames = [votee1, votee2, votee3].filter(v => v);
+
+                if (voteeNicknames.length === 0) {
+                    alert('최소 1명에게 투표해주세요.');
+                    return;
+                }
+
+                try {
+                    const response = await axios.post('/api/votes/submit', {
+                        voterId: currentUser.id,
+                        voteeNicknames,
+                        accessCode: currentAccessCode
+                    });
+
+                    if (response.data.success) {
+                        alert(\`투표가 완료되었습니다! (\${voteeNicknames.length}명)\`);
+                        document.getElementById('votee1').value = '';
+                        document.getElementById('votee2').value = '';
+                        document.getElementById('votee3').value = '';
+                        showTab('myvotes');
+                    }
+                } catch (error) {
+                    alert(error.response?.data?.message || '투표 제출 실패');
+                }
+            }
+
+            async function loadMyVotes() {
+                if (!currentUser) return;
+                
+                try {
+                    const response = await axios.get(\`/api/votes/my-votes/\${currentUser.id}\`);
+                    const votes = response.data.votes || [];
+                    
+                    const listDiv = document.getElementById('myVotesList');
+                    if (votes.length === 0) {
+                        listDiv.innerHTML = '<p class="text-gray-500 text-center py-8">투표 내역이 없습니다.</p>';
+                        return;
+                    }
+
+                    listDiv.innerHTML = votes.map((vote, idx) => \`
+                        <div class="border-2 border-orange-300 rounded-lg p-4 bg-orange-50">
+                            <div class="flex items-center justify-between">
+                                <span class="font-semibold text-orange-600">
+                                    <i class="fas fa-star mr-2"></i>투표 #\${idx + 1}
+                                </span>
+                                <span class="text-sm text-gray-500">\${new Date(vote.created_at).toLocaleString('ko-KR')}</span>
+                            </div>
+                            <p class="text-gray-800 mt-2">익명 (투표 대상)</p>
+                        </div>
+                    \`).join('');
+                } catch (error) {
+                    console.error('Error loading my votes:', error);
+                }
+            }
+
+            async function loadMyScore() {
+                if (!currentUser) return;
+                
+                try {
+                    const response = await axios.get(\`/api/votes/my-score/\${currentUser.id}\`);
+                    const score = response.data.score || 0;
+                    
+                    document.getElementById('myScoreDisplay').innerHTML = \`
+                        <div class="text-6xl font-bold text-orange-600 mb-2">\${score}</div>
+                        <p class="text-gray-600">득표수</p>
+                        <p class="text-sm text-gray-500 mt-4">
+                            <i class="fas fa-heart mr-1"></i>\${score}명이 회원님에게 투표했습니다!
+                        </p>
+                    \`;
+                } catch (error) {
+                    console.error('Error loading my score:', error);
+                }
+            }
+
+            async function loadRanking() {
+                try {
+                    const response = await axios.get(\`/api/votes/ranking?accessCode=\${currentAccessCode}\`);
+                    const ranking = response.data.ranking || [];
+                    
+                    const listDiv = document.getElementById('rankingList');
+                    if (ranking.length === 0) {
+                        listDiv.innerHTML = '<p class="text-gray-500 text-center py-8">랭킹 정보가 없습니다.</p>';
+                        return;
+                    }
+
+                    listDiv.innerHTML = ranking.map((item, idx) => {
+                        const medals = ['🥇', '🥈', '🥉'];
+                        const medal = idx < 3 ? medals[idx] : \`\${idx + 1}위\`;
+                        const bgColor = idx < 3 ? 'bg-gradient-to-r from-yellow-100 to-orange-100' : 'bg-gray-50';
+                        
+                        return \`
+                            <div class="border-2 border-gray-300 rounded-lg p-4 \${bgColor}">
+                                <div class="flex items-center justify-between">
+                                    <div class="flex items-center space-x-3">
+                                        <span class="text-2xl">\${medal}</span>
+                                        <div>
+                                            <p class="font-semibold text-gray-800">\${item.nickname}</p>
+                                            <p class="text-sm text-gray-600">
+                                                <i class="fas fa-venus-mars mr-1"></i>\${item.gender === 'male' ? '남성' : '여성'}
+                                                <span class="ml-2">\${item.mbti}</span>
+                                            </p>
+                                        </div>
+                                    </div>
+                                    <div class="text-right">
+                                        <div class="text-3xl font-bold text-orange-600">\${item.vote_count}</div>
+                                        <p class="text-sm text-gray-600">득표</p>
+                                    </div>
+                                </div>
+                            </div>
+                        \`;
+                    }).join('');
+                } catch (error) {
+                    console.error('Error loading ranking:', error);
+                }
+            }
+        </script>
     </body>
     </html>
   `)
@@ -1585,6 +2142,46 @@ app.get('/admin', (c) => {
                     <div id="teamStats" class="space-y-3"></div>
                 </div>
 
+                <!-- 쌍방 쪽지 현황 -->
+                <div class="bg-white rounded-xl shadow-lg p-6">
+                    <h2 class="text-2xl font-bold text-gray-800 mb-4">
+                        <i class="fas fa-exchange-alt mr-2 text-purple-600"></i>쌍방 쪽지 현황
+                    </h2>
+                    <div class="mb-4">
+                        <label class="block text-sm font-semibold text-gray-700 mb-2">
+                            <i class="fas fa-filter mr-2"></i>코드 선택
+                        </label>
+                        <select id="mutualMessagesCodeSelect" 
+                                onchange="loadMutualMessages()" 
+                                class="w-full px-4 py-3 border-2 border-gray-300 rounded-lg focus:border-purple-500 focus:outline-none">
+                            <option value="">코드를 선택하세요</option>
+                        </select>
+                    </div>
+                    <div id="mutualMessagesList" class="space-y-3">
+                        <p class="text-gray-500 text-center py-8">코드를 선택하면 쌍방 쪽지 현황이 표시됩니다.</p>
+                    </div>
+                </div>
+
+                <!-- 투표 통계 -->
+                <div class="bg-white rounded-xl shadow-lg p-6">
+                    <h2 class="text-2xl font-bold text-gray-800 mb-4">
+                        <i class="fas fa-chart-bar mr-2 text-orange-600"></i>투표 통계
+                    </h2>
+                    <div class="mb-4">
+                        <label class="block text-sm font-semibold text-gray-700 mb-2">
+                            <i class="fas fa-filter mr-2"></i>코드 선택
+                        </label>
+                        <select id="voteStatsCodeSelect" 
+                                onchange="loadVoteStats()" 
+                                class="w-full px-4 py-3 border-2 border-gray-300 rounded-lg focus:border-orange-500 focus:outline-none">
+                            <option value="">코드를 선택하세요</option>
+                        </select>
+                    </div>
+                    <div id="voteStatsDisplay" class="space-y-3">
+                        <p class="text-gray-500 text-center py-8">코드를 선택하면 투표 통계가 표시됩니다.</p>
+                    </div>
+                </div>
+
                 <div class="text-center mt-8">
                     <a href="/" class="inline-block bg-gray-600 text-white px-6 py-3 rounded-lg font-semibold hover:bg-gray-700 transition duration-200">
                         <i class="fas fa-home mr-2"></i>홈으로
@@ -1800,6 +2397,20 @@ app.get('/admin', (c) => {
                         teamStatsCodeSelect.innerHTML = '<option value="">전체 코드</option>' +
                             codes.map(code => \`<option value="\${code.code}">\${code.code} (\${code.valid_date}) - \${code.participant_count}명</option>\`).join('');
                         teamStatsCodeSelect.value = currentValue;
+                    }
+                    
+                    // 쌍방 쪽지 코드 select 옵션 업데이트
+                    const mutualMessagesCodeSelect = document.getElementById('mutualMessagesCodeSelect');
+                    if (mutualMessagesCodeSelect) {
+                        mutualMessagesCodeSelect.innerHTML = '<option value="">코드를 선택하세요</option>' +
+                            codes.map(code => \`<option value="\${code.code}">\${code.code} (\${code.valid_date}) - \${code.participant_count}명</option>\`).join('');
+                    }
+                    
+                    // 투표 통계 코드 select 옵션 업데이트
+                    const voteStatsCodeSelect = document.getElementById('voteStatsCodeSelect');
+                    if (voteStatsCodeSelect) {
+                        voteStatsCodeSelect.innerHTML = '<option value="">코드를 선택하세요</option>' +
+                            codes.map(code => \`<option value="\${code.code}">\${code.code} (\${code.valid_date}) - \${code.participant_count}명</option>\`).join('');
                     }
                 } catch (error) {
                     console.error('Error loading codes:', error);
@@ -2027,6 +2638,107 @@ app.get('/admin', (c) => {
                     }
                 } catch (error) {
                     alert(error.response?.data?.message || '코드 생성 실패');
+                }
+            }
+
+            async function loadMutualMessages() {
+                const code = document.getElementById('mutualMessagesCodeSelect').value;
+                const listDiv = document.getElementById('mutualMessagesList');
+                
+                if (!code) {
+                    listDiv.innerHTML = '<p class="text-gray-500 text-center py-8">코드를 선택하면 쌍방 쪽지 현황이 표시됩니다.</p>';
+                    return;
+                }
+                
+                try {
+                    const response = await axios.get(\`/api/admin/messages/mutual?accessCode=\${code}\`);
+                    const mutualPairs = response.data.mutualPairs || [];
+                    
+                    if (mutualPairs.length === 0) {
+                        listDiv.innerHTML = '<p class="text-gray-500 text-center py-8">쌍방 쪽지 내역이 없습니다.</p>';
+                        return;
+                    }
+                    
+                    listDiv.innerHTML = mutualPairs.map(pair => \`
+                        <div class="border-2 border-purple-300 bg-purple-50 rounded-lg p-4">
+                            <div class="flex items-center justify-between">
+                                <div class="flex items-center space-x-4">
+                                    <div class="bg-purple-600 text-white px-4 py-2 rounded-lg">
+                                        <i class="fas fa-user mr-2"></i>\${pair.user1_nickname}
+                                    </div>
+                                    <i class="fas fa-exchange-alt text-purple-600 text-2xl"></i>
+                                    <div class="bg-purple-600 text-white px-4 py-2 rounded-lg">
+                                        <i class="fas fa-user mr-2"></i>\${pair.user2_nickname}
+                                    </div>
+                                </div>
+                                <div class="text-sm text-gray-600">
+                                    <i class="fas fa-envelope mr-1"></i>쌍방 쪽지
+                                </div>
+                            </div>
+                        </div>
+                    \`).join('');
+                } catch (error) {
+                    console.error('Error loading mutual messages:', error);
+                    listDiv.innerHTML = '<p class="text-red-500 text-center py-8">쌍방 쪽지 로딩 실패</p>';
+                }
+            }
+
+            async function loadVoteStats() {
+                const code = document.getElementById('voteStatsCodeSelect').value;
+                const displayDiv = document.getElementById('voteStatsDisplay');
+                
+                if (!code) {
+                    displayDiv.innerHTML = '<p class="text-gray-500 text-center py-8">코드를 선택하면 투표 통계가 표시됩니다.</p>';
+                    return;
+                }
+                
+                try {
+                    const response = await axios.get(\`/api/admin/votes/stats?accessCode=\${code}\`);
+                    const stats = response.data.stats || {};
+                    
+                    displayDiv.innerHTML = \`
+                        <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+                            <div class="bg-orange-50 border-2 border-orange-300 rounded-lg p-4 text-center">
+                                <div class="text-3xl font-bold text-orange-600">\${stats.totalVotes || 0}</div>
+                                <p class="text-gray-600 mt-2">전체 투표수</p>
+                            </div>
+                            <div class="bg-blue-50 border-2 border-blue-300 rounded-lg p-4 text-center">
+                                <div class="text-3xl font-bold text-blue-600">\${stats.totalVoters || 0}</div>
+                                <p class="text-gray-600 mt-2">투표한 사람</p>
+                            </div>
+                            <div class="bg-pink-50 border-2 border-pink-300 rounded-lg p-4 text-center">
+                                <div class="text-3xl font-bold text-pink-600">\${stats.totalVotees || 0}</div>
+                                <p class="text-gray-600 mt-2">득표한 사람</p>
+                            </div>
+                        </div>
+                        <div class="mt-4">
+                            <h3 class="font-bold text-gray-800 mb-3">
+                                <i class="fas fa-trophy mr-2"></i>TOP 10 랭킹
+                            </h3>
+                            <div class="space-y-2">
+                                \${stats.topVotees && stats.topVotees.length > 0 
+                                    ? stats.topVotees.map((votee, idx) => {
+                                        const medals = ['🥇', '🥈', '🥉'];
+                                        const medal = idx < 3 ? medals[idx] : \`\${idx + 1}위\`;
+                                        return \`
+                                            <div class="flex items-center justify-between bg-gray-50 border border-gray-300 rounded-lg p-3">
+                                                <div class="flex items-center space-x-3">
+                                                    <span class="text-xl">\${medal}</span>
+                                                    <span class="font-semibold text-gray-800">\${votee.nickname}</span>
+                                                    <span class="text-sm text-gray-600">(\${votee.gender === 'male' ? '남' : '여'} / \${votee.mbti})</span>
+                                                </div>
+                                                <div class="text-2xl font-bold text-orange-600">\${votee.vote_count}</div>
+                                            </div>
+                                        \`;
+                                    }).join('')
+                                    : '<p class="text-gray-500 text-center py-4">득표 내역이 없습니다.</p>'
+                                }
+                            </div>
+                        </div>
+                    \`;
+                } catch (error) {
+                    console.error('Error loading vote stats:', error);
+                    displayDiv.innerHTML = '<p class="text-red-500 text-center py-8">투표 통계 로딩 실패</p>';
                 }
             }
         </script>
