@@ -955,9 +955,14 @@ app.get('/messages', (c) => {
                                 </h1>
                                 <p class="text-gray-600 mt-1">안녕하세요, <span id="userNickname" class="font-semibold text-purple-600"></span>님!</p>
                             </div>
-                            <button onclick="logout()" class="bg-gray-500 text-white px-4 py-2 rounded-lg hover:bg-gray-600">
-                                <i class="fas fa-sign-out-alt mr-2"></i>로그아웃
-                            </button>
+                            <div class="flex space-x-2">
+                                <a href="/" class="bg-indigo-600 text-white px-4 py-2 rounded-lg hover:bg-indigo-700 transition">
+                                    <i class="fas fa-home mr-2"></i>홈으로
+                                </a>
+                                <button onclick="logout()" class="bg-gray-500 text-white px-4 py-2 rounded-lg hover:bg-gray-600">
+                                    <i class="fas fa-sign-out-alt mr-2"></i>로그아웃
+                                </button>
+                            </div>
                         </div>
                     </div>
 
@@ -1272,9 +1277,14 @@ app.get('/vote', (c) => {
                                 </h1>
                                 <p class="text-gray-600 mt-1">안녕하세요, <span id="userNickname" class="font-semibold text-orange-600"></span>님!</p>
                             </div>
-                            <button onclick="logout()" class="bg-gray-500 text-white px-4 py-2 rounded-lg hover:bg-gray-600">
-                                <i class="fas fa-sign-out-alt mr-2"></i>로그아웃
-                            </button>
+                            <div class="flex space-x-2">
+                                <a href="/" class="bg-indigo-600 text-white px-4 py-2 rounded-lg hover:bg-indigo-700 transition">
+                                    <i class="fas fa-home mr-2"></i>홈으로
+                                </a>
+                                <button onclick="logout()" class="bg-gray-500 text-white px-4 py-2 rounded-lg hover:bg-gray-600">
+                                    <i class="fas fa-sign-out-alt mr-2"></i>로그아웃
+                                </button>
+                            </div>
                         </div>
                     </div>
 
@@ -2140,10 +2150,15 @@ app.get('/admin', (c) => {
                     <h1 class="text-4xl font-bold text-gray-800">
                         <i class="fas fa-cog text-indigo-600 mr-2"></i>관리자 페이지
                     </h1>
-                    <button onclick="adminLogout()" 
-                            class="bg-red-500 text-white px-4 py-2 rounded-lg hover:bg-red-600 transition duration-200">
-                        <i class="fas fa-sign-out-alt mr-2"></i>로그아웃
-                    </button>
+                    <div class="flex space-x-2">
+                        <a href="/" class="bg-indigo-600 text-white px-4 py-2 rounded-lg hover:bg-indigo-700 transition duration-200">
+                            <i class="fas fa-home mr-2"></i>홈으로
+                        </a>
+                        <button onclick="adminLogout()" 
+                                class="bg-red-500 text-white px-4 py-2 rounded-lg hover:bg-red-600 transition duration-200">
+                            <i class="fas fa-sign-out-alt mr-2"></i>로그아웃
+                        </button>
+                    </div>
                 </div>
 
                 <!-- 통계 -->
