@@ -543,7 +543,7 @@ app.post('/api/admin/assign-teams', async (c) => {
     const settings = await c.env.DB.prepare(`
       SELECT max_team_size FROM team_settings WHERE id = 1
     `).first()
-    const maxTeamSize = settings?.max_team_size || 8
+    const maxTeamSize = settings?.max_team_size || 6
 
     // 해당 코드의 모든 참가자 조회 (이전 팀 번호 포함)
     const { results: participants } = await c.env.DB.prepare(`
@@ -2371,7 +2371,7 @@ app.get('/admin', (c) => {
                     <div class="bg-blue-50 border-l-4 border-blue-500 p-4 mb-4">
                         <p class="text-sm text-blue-800">
                             <i class="fas fa-info-circle mr-2"></i>
-                            팀당 최대 인원을 설정합니다. 기본 설정은 8명(남4, 여4)입니다.
+                            팀당 최대 인원을 설정합니다. 기본 설정은 6명(남3, 여3)입니다.
                         </p>
                     </div>
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
@@ -2381,9 +2381,8 @@ app.get('/admin', (c) => {
                             </label>
                             <select id="maxTeamSizeSelect" 
                                    class="w-full px-4 py-3 border-2 border-gray-300 rounded-lg focus:border-indigo-500 focus:outline-none">
-                                <option value="6">6명 (남3, 여3)</option>
-                                <option value="7">7명</option>
-                                <option value="8" selected>8명 (남4, 여4)</option>
+                                <option value="5">5명 (남3, 여2)</option>
+                                <option value="6" selected>6명 (남3, 여3)</option>
                             </select>
                         </div>
                         <div class="flex items-end">
