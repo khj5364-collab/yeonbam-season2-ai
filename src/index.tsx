@@ -1407,7 +1407,7 @@ app.get('/vote', (c) => {
                     <!-- 랭킹 -->
                     <div id="contentRanking" class="hidden bg-white rounded-2xl shadow-xl p-6">
                         <h2 class="text-2xl font-bold text-gray-800 mb-6 text-center">
-                            <i class="fas fa-trophy mr-2"></i>호감도 랭킹 TOP 10
+                            <i class="fas fa-trophy mr-2"></i>호감도 랭킹 TOP 3
                         </h2>
                         
                         <!-- 남성/여성 랭킹 나란히 표시 -->
@@ -3017,7 +3017,7 @@ app.get('/admin', (c) => {
                         </div>
                         <div class="mt-4">
                             <h3 class="font-bold text-gray-800 mb-3">
-                                <i class="fas fa-trophy mr-2"></i>TOP 10 랭킹
+                                <i class="fas fa-trophy mr-2"></i>TOP 3 랭킹
                             </h3>
                             <div class="space-y-2">
                                 \${stats.topVotees && stats.topVotees.length > 0 
@@ -3268,7 +3268,7 @@ app.get('/api/votes/my-score/:participantId', async (c) => {
   }
 })
 
-// 전체 랭킹 (TOP 10)
+// 전체 랭킹 (TOP 3)
 app.get('/api/votes/ranking', async (c) => {
   try {
     const { accessCode } = c.req.query()
@@ -3285,7 +3285,7 @@ app.get('/api/votes/ranking', async (c) => {
       WHERE p.gender = 'male' AND (? = '' OR p.access_code = ?)
       GROUP BY p.id
       ORDER BY vote_count DESC
-      LIMIT 10
+      LIMIT 3
     `).bind(accessCode || '', accessCode || '').all()
 
     // 여성 랭킹
@@ -3300,7 +3300,7 @@ app.get('/api/votes/ranking', async (c) => {
       WHERE p.gender = 'female' AND (? = '' OR p.access_code = ?)
       GROUP BY p.id
       ORDER BY vote_count DESC
-      LIMIT 10
+      LIMIT 3
     `).bind(accessCode || '', accessCode || '').all()
 
     return c.json({ 
@@ -3341,7 +3341,7 @@ app.get('/api/admin/votes/stats', async (c) => {
       WHERE (? = '' OR access_code = ?)
     `).bind(accessCode || '', accessCode || '').first()
 
-    // TOP 10 득표자
+    // TOP 3 득표자
     const { results: topVotees } = await c.env.DB.prepare(`
       SELECT 
         p.nickname,
@@ -3354,7 +3354,7 @@ app.get('/api/admin/votes/stats', async (c) => {
       GROUP BY p.id
       HAVING vote_count > 0
       ORDER BY vote_count DESC
-      LIMIT 10
+      LIMIT 3
     `).bind(accessCode || '', accessCode || '').all()
 
     return c.json({ 
