@@ -784,14 +784,20 @@ app.post('/api/admin/assign-teams', async (c) => {
     const eCount = participants.filter((p: any) => p.mbti?.toUpperCase().startsWith('E')).length
     const iCount = participants.filter((p: any) => p.mbti?.toUpperCase().startsWith('I')).length
     
+    // 팀 배정 시 투표 초기화 (해당 코드의 모든 투표 삭제)
+    await c.env.DB.prepare(`
+      DELETE FROM votes WHERE access_code = ?
+    `).bind(code).run()
+    
     return c.json({ 
       success: true, 
-      message: `${participants.length}명의 참가자가 6개 팀에 MBTI 균형을 고려하여 재배정되었습니다.`,
+      message: `${participants.length}명의 참가자가 6개 팀에 MBTI 균형을 고려하여 재배정되었습니다. 투표가 초기화되었습니다.`,
       assignedCount: participants.length,
       maleCount: participants.filter((p: any) => p.gender === 'male').length,
       femaleCount: participants.filter((p: any) => p.gender === 'female').length,
       eCount: eCount,
-      iCount: iCount
+      iCount: iCount,
+      votesReset: true
     })
   } catch (error) {
     console.error('Error assigning teams:', error)
@@ -1283,8 +1289,9 @@ app.get('/vote', (c) => {
                     </h1>
                     
                     <div class="mb-6 p-4 bg-orange-50 rounded-lg">
-                        <p class="text-orange-900">⭐ 최대 3명에게 투표할 수 있습니다.</p>
+                        <p class="text-orange-900">⭐ 최대 2명에게 투표할 수 있습니다.</p>
                         <p class="text-orange-700 text-sm mt-2">투표 결과는 익명으로 집계됩니다.</p>
+                        <p class="text-orange-700 text-sm mt-2">💡 팀 재배정 시 투표 기회가 1번 초기화됩니다.</p>
                     </div>
 
                     <div class="space-y-4">
@@ -1354,7 +1361,7 @@ app.get('/vote', (c) => {
                     <!-- 투표하기 -->
                     <div id="contentVote" class="bg-white rounded-2xl shadow-xl p-6">
                         <h2 class="text-2xl font-bold text-gray-800 mb-4">
-                            <i class="fas fa-vote-yea mr-2"></i>투표하기 (최대 3명)
+                            <i class="fas fa-vote-yea mr-2"></i>투표하기 (최대 2명)
                         </h2>
                         <div class="space-y-4">
                             <div>
@@ -1365,11 +1372,6 @@ app.get('/vote', (c) => {
                             <div>
                                 <label class="block text-sm font-semibold text-gray-700 mb-2">2번째 투표 (선택)</label>
                                 <input type="text" id="votee2" placeholder="닉네임 입력" 
-                                       class="w-full px-4 py-3 border-2 border-gray-300 rounded-lg focus:border-orange-500 focus:outline-none">
-                            </div>
-                            <div>
-                                <label class="block text-sm font-semibold text-gray-700 mb-2">3번째 투표 (선택)</label>
-                                <input type="text" id="votee3" placeholder="닉네임 입력" 
                                        class="w-full px-4 py-3 border-2 border-gray-300 rounded-lg focus:border-orange-500 focus:outline-none">
                             </div>
                             <button onclick="submitVote()" class="w-full bg-orange-600 text-white py-3 rounded-lg font-semibold hover:bg-orange-700 transition">
@@ -1407,8 +1409,25 @@ app.get('/vote', (c) => {
                         <h2 class="text-2xl font-bold text-gray-800 mb-4">
                             <i class="fas fa-trophy mr-2"></i>호감도 랭킹 TOP 10
                         </h2>
-                        <div id="rankingList" class="space-y-3">
-                            <p class="text-gray-500 text-center py-8">랭킹 정보가 없습니다.</p>
+                        
+                        <!-- 남성 랭킹 -->
+                        <div class="mb-6">
+                            <h3 class="text-xl font-semibold text-blue-600 mb-3">
+                                <i class="fas fa-mars mr-2"></i>남성 랭킹
+                            </h3>
+                            <div id="maleRankingList" class="space-y-3">
+                                <p class="text-gray-500 text-center py-4">랭킹 정보가 없습니다.</p>
+                            </div>
+                        </div>
+                        
+                        <!-- 여성 랭킹 -->
+                        <div>
+                            <h3 class="text-xl font-semibold text-pink-600 mb-3">
+                                <i class="fas fa-venus mr-2"></i>여성 랭킹
+                            </h3>
+                            <div id="femaleRankingList" class="space-y-3">
+                                <p class="text-gray-500 text-center py-4">랭킹 정보가 없습니다.</p>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -1519,9 +1538,8 @@ app.get('/vote', (c) => {
 
                 const votee1 = document.getElementById('votee1').value.trim();
                 const votee2 = document.getElementById('votee2').value.trim();
-                const votee3 = document.getElementById('votee3').value.trim();
 
-                const voteeNicknames = [votee1, votee2, votee3].filter(v => v);
+                const voteeNicknames = [votee1, votee2].filter(v => v);
 
                 if (voteeNicknames.length === 0) {
                     alert('최소 1명에게 투표해주세요.');
@@ -1539,7 +1557,6 @@ app.get('/vote', (c) => {
                         alert(\`투표가 완료되었습니다! (\${voteeNicknames.length}명)\`);
                         document.getElementById('votee1').value = '';
                         document.getElementById('votee2').value = '';
-                        document.getElementById('votee3').value = '';
                         showTab('myvotes');
                     }
                 } catch (error) {
@@ -1598,40 +1615,74 @@ app.get('/vote', (c) => {
             async function loadRanking() {
                 try {
                     const response = await axios.get(\`/api/votes/ranking?accessCode=\${currentAccessCode}\`);
-                    const ranking = response.data.ranking || [];
+                    const maleRanking = response.data.maleRanking || [];
+                    const femaleRanking = response.data.femaleRanking || [];
                     
-                    const listDiv = document.getElementById('rankingList');
-                    if (ranking.length === 0) {
-                        listDiv.innerHTML = '<p class="text-gray-500 text-center py-8">랭킹 정보가 없습니다.</p>';
-                        return;
-                    }
-
-                    listDiv.innerHTML = ranking.map((item, idx) => {
-                        const medals = ['🥇', '🥈', '🥉'];
-                        const medal = idx < 3 ? medals[idx] : \`\${idx + 1}위\`;
-                        const bgColor = idx < 3 ? 'bg-gradient-to-r from-yellow-100 to-orange-100' : 'bg-gray-50';
-                        
-                        return \`
-                            <div class="border-2 border-gray-300 rounded-lg p-4 \${bgColor}">
-                                <div class="flex items-center justify-between">
-                                    <div class="flex items-center space-x-3">
-                                        <span class="text-2xl">\${medal}</span>
-                                        <div>
-                                            <p class="font-semibold text-gray-800">\${item.nickname}</p>
-                                            <p class="text-sm text-gray-600">
-                                                <i class="fas fa-venus-mars mr-1"></i>\${item.gender === 'male' ? '남성' : '여성'}
-                                                <span class="ml-2">\${item.mbti}</span>
-                                            </p>
+                    // 남성 랭킹
+                    const maleListDiv = document.getElementById('maleRankingList');
+                    if (maleRanking.length === 0) {
+                        maleListDiv.innerHTML = '<p class="text-gray-500 text-center py-4">랭킹 정보가 없습니다.</p>';
+                    } else {
+                        maleListDiv.innerHTML = maleRanking.map((item, idx) => {
+                            const medals = ['🥇', '🥈', '🥉'];
+                            const medal = idx < 3 ? medals[idx] : \`\${idx + 1}위\`;
+                            const bgColor = idx < 3 ? 'bg-gradient-to-r from-blue-100 to-indigo-100' : 'bg-gray-50';
+                            
+                            return \`
+                                <div class="border-2 border-blue-300 rounded-lg p-4 \${bgColor}">
+                                    <div class="flex items-center justify-between">
+                                        <div class="flex items-center space-x-3">
+                                            <span class="text-2xl">\${medal}</span>
+                                            <div>
+                                                <p class="font-semibold text-gray-800">\${item.nickname}</p>
+                                                <p class="text-sm text-gray-600">
+                                                    <i class="fas fa-mars mr-1 text-blue-600"></i>남성
+                                                    <span class="ml-2">\${item.mbti}</span>
+                                                </p>
+                                            </div>
+                                        </div>
+                                        <div class="text-right">
+                                            <div class="text-3xl font-bold text-blue-600">\${item.vote_count}</div>
+                                            <p class="text-sm text-gray-600">득표</p>
                                         </div>
                                     </div>
-                                    <div class="text-right">
-                                        <div class="text-3xl font-bold text-orange-600">\${item.vote_count}</div>
-                                        <p class="text-sm text-gray-600">득표</p>
+                                </div>
+                            \`;
+                        }).join('');
+                    }
+                    
+                    // 여성 랭킹
+                    const femaleListDiv = document.getElementById('femaleRankingList');
+                    if (femaleRanking.length === 0) {
+                        femaleListDiv.innerHTML = '<p class="text-gray-500 text-center py-4">랭킹 정보가 없습니다.</p>';
+                    } else {
+                        femaleListDiv.innerHTML = femaleRanking.map((item, idx) => {
+                            const medals = ['🥇', '🥈', '🥉'];
+                            const medal = idx < 3 ? medals[idx] : \`\${idx + 1}위\`;
+                            const bgColor = idx < 3 ? 'bg-gradient-to-r from-pink-100 to-rose-100' : 'bg-gray-50';
+                            
+                            return \`
+                                <div class="border-2 border-pink-300 rounded-lg p-4 \${bgColor}">
+                                    <div class="flex items-center justify-between">
+                                        <div class="flex items-center space-x-3">
+                                            <span class="text-2xl">\${medal}</span>
+                                            <div>
+                                                <p class="font-semibold text-gray-800">\${item.nickname}</p>
+                                                <p class="text-sm text-gray-600">
+                                                    <i class="fas fa-venus mr-1 text-pink-600"></i>여성
+                                                    <span class="ml-2">\${item.mbti}</span>
+                                                </p>
+                                            </div>
+                                        </div>
+                                        <div class="text-right">
+                                            <div class="text-3xl font-bold text-pink-600">\${item.vote_count}</div>
+                                            <p class="text-sm text-gray-600">득표</p>
+                                        </div>
                                     </div>
                                 </div>
-                            </div>
-                        \`;
-                    }).join('');
+                            \`;
+                        }).join('');
+                    }
                 } catch (error) {
                     console.error('Error loading ranking:', error);
                 }
@@ -3156,8 +3207,8 @@ app.post('/api/votes/submit', async (c) => {
       return c.json({ success: false, message: '잘못된 요청입니다.' }, 400)
     }
 
-    if (voteeNicknames.length > 3) {
-      return c.json({ success: false, message: '최대 3명까지만 투표할 수 있습니다.' }, 400)
+    if (voteeNicknames.length > 2) {
+      return c.json({ success: false, message: '최대 2명까지만 투표할 수 있습니다.' }, 400)
     }
 
     // 기존 투표 삭제
@@ -3231,7 +3282,8 @@ app.get('/api/votes/ranking', async (c) => {
   try {
     const { accessCode } = c.req.query()
 
-    const { results } = await c.env.DB.prepare(`
+    // 남성 랭킹
+    const { results: maleResults } = await c.env.DB.prepare(`
       SELECT 
         p.nickname,
         p.gender,
@@ -3239,13 +3291,32 @@ app.get('/api/votes/ranking', async (c) => {
         COUNT(v.id) as vote_count
       FROM participants p
       LEFT JOIN votes v ON p.id = v.votee_id
-      WHERE (? = '' OR p.access_code = ?)
+      WHERE p.gender = 'male' AND (? = '' OR p.access_code = ?)
       GROUP BY p.id
       ORDER BY vote_count DESC
       LIMIT 10
     `).bind(accessCode || '', accessCode || '').all()
 
-    return c.json({ success: true, ranking: results })
+    // 여성 랭킹
+    const { results: femaleResults } = await c.env.DB.prepare(`
+      SELECT 
+        p.nickname,
+        p.gender,
+        p.mbti,
+        COUNT(v.id) as vote_count
+      FROM participants p
+      LEFT JOIN votes v ON p.id = v.votee_id
+      WHERE p.gender = 'female' AND (? = '' OR p.access_code = ?)
+      GROUP BY p.id
+      ORDER BY vote_count DESC
+      LIMIT 10
+    `).bind(accessCode || '', accessCode || '').all()
+
+    return c.json({ 
+      success: true, 
+      maleRanking: maleResults,
+      femaleRanking: femaleResults
+    })
   } catch (error) {
     console.error('Error fetching ranking:', error)
     return c.json({ success: false, message: '서버 오류가 발생했습니다.' }, 500)
