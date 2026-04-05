@@ -357,9 +357,24 @@ app.post('/api/admin/delete-code', async (c) => {
       SELECT COUNT(*) as count FROM participants WHERE access_code = ?
     `).bind(code).first()
 
-    // 참가자가 있으면 함께 삭제
+    // 참가자가 있으면 관련 데이터를 모두 삭제
     if (participantCount && participantCount.count > 0) {
-      // 설문 응답 삭제 (있을 경우)
+      // 1. 투표 삭제
+      await c.env.DB.prepare(`
+        DELETE FROM votes WHERE access_code = ?
+      `).bind(code).run()
+      
+      // 2. 메시지 삭제
+      await c.env.DB.prepare(`
+        DELETE FROM messages WHERE access_code = ?
+      `).bind(code).run()
+      
+      // 3. 관리자 메시지 삭제
+      await c.env.DB.prepare(`
+        DELETE FROM admin_messages WHERE access_code = ?
+      `).bind(code).run()
+      
+      // 4. 설문 응답 삭제 (있을 경우)
       await c.env.DB.prepare(`
         DELETE FROM survey_responses 
         WHERE participant_id IN (
@@ -367,7 +382,7 @@ app.post('/api/admin/delete-code', async (c) => {
         )
       `).bind(code).run()
 
-      // 참가자 삭제
+      // 5. 참가자 삭제
       await c.env.DB.prepare(`
         DELETE FROM participants WHERE access_code = ?
       `).bind(code).run()
