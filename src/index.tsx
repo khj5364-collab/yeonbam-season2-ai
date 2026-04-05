@@ -516,9 +516,14 @@ app.get('/api/admin/stats', async (c) => {
         ORDER BY team_number
       `).bind(teamStatsCode).all()
       
-      // 6개 팀 모두 표시 (참가자가 없으면 0으로)
+      // 설정된 팀 개수만큼 모두 표시 (참가자가 없으면 0으로)
+      const settings = await c.env.DB.prepare(`
+        SELECT max_team_count FROM team_settings WHERE id = 1
+      `).first()
+      const maxTeamCount = settings?.max_team_count || 6
+      
       teams = [];
-      for (let i = 1; i <= 6; i++) {
+      for (let i = 1; i <= maxTeamCount; i++) {
         const teamInfo = teamData.find(t => t.team_number === i);
         teams.push({
           team_number: i,
@@ -588,11 +593,12 @@ app.post('/api/admin/assign-teams', async (c) => {
       return c.json({ success: false, message: '코드를 입력해주세요.' }, 400)
     }
 
-    // 팀 설정 조회
+    // 팀 설정 조회 (팀 개수와 팀당 최대 인원)
     const settings = await c.env.DB.prepare(`
-      SELECT max_team_size FROM team_settings WHERE id = 1
+      SELECT max_team_size, max_team_count FROM team_settings WHERE id = 1
     `).first()
     const maxTeamSize = settings?.max_team_size || 6
+    const maxTeamCount = settings?.max_team_count || 6
 
     // 해당 코드의 모든 참가자 조회 (이전 팀 번호 포함)
     const { results: participants } = await c.env.DB.prepare(`
@@ -608,10 +614,10 @@ app.post('/api/admin/assign-teams', async (c) => {
 
     // 참가자 수 검증
     const requiredTeams = Math.ceil(participants.length / maxTeamSize)
-    if (requiredTeams > 6) {
+    if (requiredTeams > maxTeamCount) {
       return c.json({ 
         success: false, 
-        message: `참가자가 ${participants.length}명으로 팀당 ${maxTeamSize}명 기준 ${requiredTeams}개 팀이 필요합니다. 최대 6개 팀까지만 지원됩니다.` 
+        message: `참가자가 ${participants.length}명으로 팀당 ${maxTeamSize}명 기준 ${requiredTeams}개 팀이 필요합니다. 최대 ${maxTeamCount}개 팀까지만 지원됩니다.` 
       }, 400)
     }
 
@@ -657,27 +663,28 @@ app.post('/api/admin/assign-teams', async (c) => {
     const femaleE = shuffle(participants.filter((p: any) => p.gender === 'female' && p.mbti?.toUpperCase().startsWith('E')))
     const femaleI = shuffle(participants.filter((p: any) => p.gender === 'female' && p.mbti?.toUpperCase().startsWith('I')))
 
-    // 6팀에 배정
-    const teamAssignments: any = {
-      1: [], 2: [], 3: [], 4: [], 5: [], 6: []
+    // 동적 팀 개수로 배정
+    const teamAssignments: any = {}
+    const teamICounts: any = {}
+    
+    for (let i = 1; i <= maxTeamCount; i++) {
+      teamAssignments[i] = []
+      teamICounts[i] = 0
     }
 
-    // 각 팀의 I 카운트 추적
-    const teamICounts = { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0, 6: 0 }
-
     // 팀당 목표 인원 계산 (균등 분배, 5-6명 제한)
-    const baseSize = Math.floor(participants.length / 6)  // 기본 인원
-    const extraMembers = participants.length % 6          // 추가로 1명씩 들어갈 팀 수
+    const baseSize = Math.floor(participants.length / maxTeamCount)  // 기본 인원
+    const extraMembers = participants.length % maxTeamCount          // 추가로 1명씩 들어갈 팀 수
     const teamSizeLimits: any = {}
     
-    for (let t = 1; t <= 6; t++) {
+    for (let t = 1; t <= maxTeamCount; t++) {
       // 처음 extraMembers개 팀은 baseSize + 1명, 나머지는 baseSize명
       let targetSize = t <= extraMembers ? baseSize + 1 : baseSize
       
       // 5-6명 제한 적용
-      if (targetSize > 6) {
-        targetSize = 6
-      } else if (targetSize < 5) {
+      if (targetSize > maxTeamSize) {
+        targetSize = maxTeamSize
+      } else if (targetSize < 5 && maxTeamSize >= 5) {
         targetSize = 5
       }
       
@@ -712,7 +719,7 @@ app.post('/api/admin/assign-teams', async (c) => {
       let bestTeam = 1
       let bestScore = -1
 
-      for (let t = 1; t <= 6; t++) {
+      for (let t = 1; t <= maxTeamCount; t++) {
         // 팀 인원이 이미 목표치에 도달했으면 제외
         if (teamAssignments[t].length >= teamSizeLimits[t]) {
           continue
@@ -739,10 +746,10 @@ app.post('/api/admin/assign-teams', async (c) => {
           // MBTI 균형 고려
           if (isIntrovert) {
             // I는 I가 적은 팀 선호
-            score += (1000 - teamICounts[t as keyof typeof teamICounts] * 100)
+            score += (1000 - teamICounts[t] * 100)
           } else {
             // E는 I가 많은 팀 선호
-            score += (teamICounts[t as keyof typeof teamICounts] * 100)
+            score += (teamICounts[t] * 100)
           }
         }
 
@@ -759,7 +766,7 @@ app.post('/api/admin/assign-teams', async (c) => {
       if (bestScore === -1) {
         // 성비 제약은 반드시 지키면서 인원이 적은 팀 찾기
         let minSize = 100
-        for (let t = 1; t <= 6; t++) {
+        for (let t = 1; t <= maxTeamCount; t++) {
           if (teamAssignments[t].length < teamSizeLimits[t] && checkGenderBalance(teamAssignments[t], person, teamSizeLimits[t])) {
             if (teamAssignments[t].length < minSize) {
               minSize = teamAssignments[t].length
@@ -770,7 +777,7 @@ app.post('/api/admin/assign-teams', async (c) => {
         
         // 성비 제약을 만족하는 팀이 없으면, 이전 팀원 겹침만 무시하고 재시도
         if (minSize === 100) {
-          for (let t = 1; t <= 6; t++) {
+          for (let t = 1; t <= maxTeamCount; t++) {
             // 팀 크기와 성비 제약은 반드시 지킴
             if (teamAssignments[t].length < teamSizeLimits[t] && checkGenderBalance(teamAssignments[t], person, teamSizeLimits[t])) {
               minSize = teamAssignments[t].length
@@ -783,7 +790,7 @@ app.post('/api/admin/assign-teams', async (c) => {
 
       teamAssignments[bestTeam].push(person)
       if (isIntrovert) {
-        teamICounts[bestTeam as keyof typeof teamICounts]++
+        teamICounts[bestTeam]++
       }
     }
 
@@ -815,7 +822,7 @@ app.post('/api/admin/assign-teams', async (c) => {
     }
 
     // 팀 카운트 업데이트
-    for (let i = 1; i <= 6; i++) {
+    for (let i = 1; i <= maxTeamCount; i++) {
       const teamMembers = teamAssignments[i]
       const maleCount = teamMembers.filter((m: any) => m.gender === 'male').length
       const femaleCount = teamMembers.filter((m: any) => m.gender === 'female').length
@@ -840,7 +847,7 @@ app.post('/api/admin/assign-teams', async (c) => {
     
     return c.json({ 
       success: true, 
-      message: `${participants.length}명의 참가자가 6개 팀에 MBTI 균형을 고려하여 재배정되었습니다. 투표가 초기화되었습니다.`,
+      message: `${participants.length}명의 참가자가 ${maxTeamCount}개 팀에 MBTI 균형을 고려하여 재배정되었습니다. 투표가 초기화되었습니다.`,
       assignedCount: participants.length,
       maleCount: participants.filter((p: any) => p.gender === 'male').length,
       femaleCount: participants.filter((p: any) => p.gender === 'female').length,
@@ -3997,7 +4004,7 @@ app.get('/admin', (c) => {
                     <div class="bg-yellow-50 border-l-4 border-yellow-500 p-4 mb-4">
                         <p class="text-sm text-yellow-800">
                             <i class="fas fa-exclamation-triangle mr-2"></i>
-                            <strong>주의:</strong> 선택한 코드의 <strong>모든 참가자</strong>를 6개 팀에 랜덤으로 <strong>재배정</strong>합니다.
+                            <strong>주의:</strong> 선택한 코드의 <strong>모든 참가자</strong>를 설정된 팀 개수로 랜덤 <strong>재배정</strong>합니다.
                             기존 팀 배정은 초기화되고, MBTI 균형과 이전 팀원 겹침 최소화를 고려하여 새로 배정됩니다.
                         </p>
                     </div>
