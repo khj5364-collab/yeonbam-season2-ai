@@ -1335,6 +1335,63 @@ app.get('/vote', (c) => {
                 font-size: 18px;
                 box-shadow: 0 4px 12px rgba(0,0,0,0.15);
             }
+            
+            /* 다크 모드 */
+            body.dark-mode {
+                background: linear-gradient(135deg, #1a202c 0%, #2d3748 100%);
+            }
+            
+            body.dark-mode nav {
+                background: #2d3748;
+                border-bottom: 1px solid #4a5568;
+            }
+            
+            body.dark-mode .bg-white {
+                background: #2d3748;
+            }
+            
+            body.dark-mode .text-gray-800,
+            body.dark-mode .text-gray-700,
+            body.dark-mode .text-orange-800 {
+                color: #e2e8f0;
+            }
+            
+            body.dark-mode .text-gray-600 {
+                color: #a0aec0;
+            }
+            
+            body.dark-mode .text-gray-500 {
+                color: #718096;
+            }
+            
+            body.dark-mode .border-gray-300 {
+                border-color: #4a5568;
+            }
+            
+            body.dark-mode input {
+                background: #1a202c;
+                color: #e2e8f0;
+                border-color: #4a5568;
+            }
+            
+            body.dark-mode .bg-orange-50 {
+                background: rgba(45, 55, 72, 0.5);
+            }
+            
+            .dark-mode-toggle {
+                cursor: pointer;
+                padding: 8px 12px;
+                border-radius: 8px;
+                transition: all 0.3s ease;
+            }
+            
+            .dark-mode-toggle:hover {
+                background: rgba(0,0,0,0.1);
+            }
+            
+            body.dark-mode .dark-mode-toggle:hover {
+                background: rgba(255,255,255,0.1);
+            }
         </style>
     </head>
     <body class="bg-gradient-to-br from-yellow-50 to-orange-100 min-h-screen">
@@ -1345,7 +1402,7 @@ app.get('/vote', (c) => {
                     <a href="/" class="text-xl font-bold text-indigo-600">
                         <i class="fas fa-users mr-2"></i>YEONBAM SEASON 2
                     </a>
-                    <div class="flex space-x-4">
+                    <div class="flex items-center space-x-4">
                         <a href="/teams" class="text-gray-700 hover:text-indigo-600 transition">
                             <i class="fas fa-users mr-1"></i>팀 현황
                         </a>
@@ -1358,6 +1415,9 @@ app.get('/vote', (c) => {
                         <a href="/admin" class="text-gray-700 hover:text-gray-900 transition">
                             <i class="fas fa-cog mr-1"></i>관리자
                         </a>
+                        <button onclick="toggleDarkMode()" class="dark-mode-toggle text-gray-700" title="다크 모드 전환">
+                            <i class="fas fa-moon" id="darkModeIcon"></i>
+                        </button>
                     </div>
                 </div>
             </div>
@@ -1797,6 +1857,38 @@ app.get('/vote', (c) => {
                     console.error('Error loading ranking:', error);
                 }
             }
+            
+            // 다크 모드 관리
+            function toggleDarkMode() {
+                const body = document.body;
+                const icon = document.getElementById('darkModeIcon');
+                
+                body.classList.toggle('dark-mode');
+                
+                if (body.classList.contains('dark-mode')) {
+                    icon.classList.remove('fa-moon');
+                    icon.classList.add('fa-sun');
+                    localStorage.setItem('darkMode', 'enabled');
+                } else {
+                    icon.classList.remove('fa-sun');
+                    icon.classList.add('fa-moon');
+                    localStorage.setItem('darkMode', 'disabled');
+                }
+            }
+            
+            // 페이지 로드 시 다크 모드 상태 복원 (기존 DOMContentLoaded와 병합)
+            const originalDOMContentLoaded = window.addEventListener('DOMContentLoaded', async () => {
+                const darkMode = localStorage.getItem('darkMode');
+                const icon = document.getElementById('darkModeIcon');
+                
+                if (darkMode === 'enabled') {
+                    document.body.classList.add('dark-mode');
+                    if (icon) {
+                        icon.classList.remove('fa-moon');
+                        icon.classList.add('fa-sun');
+                    }
+                }
+            });
         </script>
     </body>
     </html>
@@ -1952,6 +2044,83 @@ app.get('/', (c) => {
                 transform: translateY(-5px);
                 box-shadow: 0 10px 30px rgba(0,0,0,0.2);
             }
+            
+            /* 다크 모드 스타일 */
+            body.dark-mode {
+                background: linear-gradient(135deg, #1a202c 0%, #2d3748 100%);
+            }
+            
+            body.dark-mode nav {
+                background: #2d3748;
+                border-bottom: 1px solid #4a5568;
+            }
+            
+            body.dark-mode .bg-white {
+                background: #2d3748;
+            }
+            
+            body.dark-mode .text-gray-800 {
+                color: #e2e8f0;
+            }
+            
+            body.dark-mode .text-gray-700 {
+                color: #cbd5e0;
+            }
+            
+            body.dark-mode .text-gray-600 {
+                color: #a0aec0;
+            }
+            
+            body.dark-mode .text-gray-500 {
+                color: #718096;
+            }
+            
+            body.dark-mode .border-gray-300 {
+                border-color: #4a5568;
+            }
+            
+            body.dark-mode input,
+            body.dark-mode select,
+            body.dark-mode textarea {
+                background: #1a202c;
+                color: #e2e8f0;
+                border-color: #4a5568;
+            }
+            
+            body.dark-mode .bg-indigo-50 {
+                background: #2d3748;
+            }
+            
+            body.dark-mode .bg-yellow-50 {
+                background: #2d3748;
+            }
+            
+            body.dark-mode .bg-gray-50 {
+                background: #1a202c;
+            }
+            
+            body.dark-mode .bg-gray-100 {
+                background: #2d3748;
+            }
+            
+            body.dark-mode .bg-gray-300 {
+                background: #4a5568;
+            }
+            
+            .dark-mode-toggle {
+                cursor: pointer;
+                padding: 8px 12px;
+                border-radius: 8px;
+                transition: all 0.3s ease;
+            }
+            
+            .dark-mode-toggle:hover {
+                background: rgba(0,0,0,0.1);
+            }
+            
+            body.dark-mode .dark-mode-toggle:hover {
+                background: rgba(255,255,255,0.1);
+            }
         </style>
     </head>
     <body class="bg-gradient-to-br from-blue-50 to-indigo-100 min-h-screen">
@@ -1962,7 +2131,7 @@ app.get('/', (c) => {
                     <a href="/" class="text-xl font-bold text-indigo-600">
                         <i class="fas fa-users mr-2"></i>YEONBAM SEASON 2
                     </a>
-                    <div class="flex space-x-4">
+                    <div class="flex items-center space-x-4">
                         <a href="/teams" class="text-gray-700 hover:text-indigo-600 transition">
                             <i class="fas fa-users mr-1"></i>팀 현황
                         </a>
@@ -1975,6 +2144,9 @@ app.get('/', (c) => {
                         <a href="/admin" class="text-gray-700 hover:text-gray-900 transition">
                             <i class="fas fa-cog mr-1"></i>관리자
                         </a>
+                        <button onclick="toggleDarkMode()" class="dark-mode-toggle text-gray-700" title="다크 모드 전환">
+                            <i class="fas fa-moon" id="darkModeIcon"></i>
+                        </button>
                     </div>
                 </div>
             </div>
@@ -2230,6 +2402,38 @@ app.get('/', (c) => {
             let selectedGender = null;
             let verifiedCode = null;
             let questions = [];
+            
+            // 다크 모드 관리
+            function toggleDarkMode() {
+                const body = document.body;
+                const icon = document.getElementById('darkModeIcon');
+                
+                body.classList.toggle('dark-mode');
+                
+                if (body.classList.contains('dark-mode')) {
+                    icon.classList.remove('fa-moon');
+                    icon.classList.add('fa-sun');
+                    localStorage.setItem('darkMode', 'enabled');
+                } else {
+                    icon.classList.remove('fa-sun');
+                    icon.classList.add('fa-moon');
+                    localStorage.setItem('darkMode', 'disabled');
+                }
+            }
+            
+            // 페이지 로드 시 다크 모드 상태 복원
+            window.addEventListener('DOMContentLoaded', () => {
+                const darkMode = localStorage.getItem('darkMode');
+                const icon = document.getElementById('darkModeIcon');
+                
+                if (darkMode === 'enabled') {
+                    document.body.classList.add('dark-mode');
+                    if (icon) {
+                        icon.classList.remove('fa-moon');
+                        icon.classList.add('fa-sun');
+                    }
+                }
+            });
             
             // 토스트 알림 시스템
             function showToast(message, type = 'info') {
@@ -2577,6 +2781,51 @@ app.get('/teams', async (c) => {
                 background: linear-gradient(135deg, #f9a8d4 0%, #ec4899 100%);
                 color: white;
             }
+            
+            /* 다크 모드 */
+            body.dark-mode {
+                background: linear-gradient(135deg, #1a202c 0%, #2d3748 100%);
+            }
+            
+            body.dark-mode nav {
+                background: #2d3748;
+                border-bottom: 1px solid #4a5568;
+            }
+            
+            body.dark-mode .bg-white {
+                background: #2d3748;
+            }
+            
+            body.dark-mode .text-gray-800 {
+                color: #e2e8f0;
+            }
+            
+            body.dark-mode .text-gray-700 {
+                color: #cbd5e0;
+            }
+            
+            body.dark-mode .text-gray-600 {
+                color: #a0aec0;
+            }
+            
+            body.dark-mode .bg-gray-50 {
+                background: #1a202c;
+            }
+            
+            .dark-mode-toggle {
+                cursor: pointer;
+                padding: 8px 12px;
+                border-radius: 8px;
+                transition: all 0.3s ease;
+            }
+            
+            .dark-mode-toggle:hover {
+                background: rgba(0,0,0,0.1);
+            }
+            
+            body.dark-mode .dark-mode-toggle:hover {
+                background: rgba(255,255,255,0.1);
+            }
         </style>
     </head>
     <body class="bg-gradient-to-br from-blue-50 to-indigo-100 min-h-screen">
@@ -2587,7 +2836,7 @@ app.get('/teams', async (c) => {
                     <a href="/" class="text-xl font-bold text-indigo-600">
                         <i class="fas fa-users mr-2"></i>YEONBAM SEASON 2
                     </a>
-                    <div class="flex space-x-4">
+                    <div class="flex items-center space-x-4">
                         <a href="/teams" class="text-indigo-600 font-semibold">
                             <i class="fas fa-users mr-1"></i>팀 현황
                         </a>
@@ -2600,6 +2849,9 @@ app.get('/teams', async (c) => {
                         <a href="/admin" class="text-gray-700 hover:text-gray-900 transition">
                             <i class="fas fa-cog mr-1"></i>관리자
                         </a>
+                        <button onclick="toggleDarkMode()" class="dark-mode-toggle text-gray-700" title="다크 모드 전환">
+                            <i class="fas fa-moon" id="darkModeIcon"></i>
+                        </button>
                     </div>
                 </div>
             </div>
@@ -2745,6 +2997,38 @@ app.get('/teams', async (c) => {
             function closeTeamModal() {
                 document.getElementById('teamMemberModal').classList.add('hidden');
             }
+            
+            // 다크 모드 관리
+            function toggleDarkMode() {
+                const body = document.body;
+                const icon = document.getElementById('darkModeIcon');
+                
+                body.classList.toggle('dark-mode');
+                
+                if (body.classList.contains('dark-mode')) {
+                    icon.classList.remove('fa-moon');
+                    icon.classList.add('fa-sun');
+                    localStorage.setItem('darkMode', 'enabled');
+                } else {
+                    icon.classList.remove('fa-sun');
+                    icon.classList.add('fa-moon');
+                    localStorage.setItem('darkMode', 'disabled');
+                }
+            }
+            
+            // 페이지 로드 시 다크 모드 상태 복원
+            window.addEventListener('DOMContentLoaded', () => {
+                const darkMode = localStorage.getItem('darkMode');
+                const icon = document.getElementById('darkModeIcon');
+                
+                if (darkMode === 'enabled') {
+                    document.body.classList.add('dark-mode');
+                    if (icon) {
+                        icon.classList.remove('fa-moon');
+                        icon.classList.add('fa-sun');
+                    }
+                }
+            });
 
             loadTeams();
         </script>
