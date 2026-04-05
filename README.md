@@ -18,9 +18,6 @@
 
 ### 관리자 기능
 - **대시보드**: 실시간 통계 카드 (전체/남성/여성 참가자, 활성 코드)
-- **통계 시각화**: 
-  - 성별 분포 파이 차트 (Chart.js)
-  - MBTI 분포 막대 차트 (상위 8개)
 - **일일 코드 관리**: 생성, 활성화/비활성화, 삭제
 - **코드별 통계**: 독립적인 참가자 및 팀 현황
 - **동적 팀 설정**: 
@@ -45,12 +42,11 @@
 
 ## 🏗️ 기술 스택
 
-- **Frontend**: HTML/JavaScript (Vanilla), Tailwind CSS, Font Awesome, Chart.js
+- **Frontend**: HTML/JavaScript (Vanilla), Tailwind CSS, Font Awesome
 - **Backend**: Hono v4 (TypeScript)
 - **Database**: Cloudflare D1 (SQLite)
 - **Deploy**: Cloudflare Pages
 - **Build**: Vite, Wrangler
-- **Visualization**: Chart.js 4.4.0 (파이 차트, 막대 차트)
 - **Icons**: Font Awesome 6.4.0
 - **HTTP Client**: Axios 1.6.0
 
@@ -212,7 +208,6 @@ webapp/
 - `POST /api/admin/toggle-code` - 활성화 토글
 - `POST /api/admin/delete-code` - 코드 삭제
 - `GET /api/admin/stats` - 통계 조회
-- `GET /api/admin/mbti-stats` - MBTI 분포 통계 (NEW)
 - `GET /api/admin/code/:code/participants` - 참가자 상세
 - `GET/POST /api/admin/team-settings` - 팀 설정
 - `POST /api/admin/assign-teams` - 팀 배정
