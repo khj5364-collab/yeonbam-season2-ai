@@ -2303,6 +2303,150 @@ app.get('/', (c) => {
             body.dark-mode .dark-mode-toggle:hover {
                 background: rgba(255,255,255,0.1);
             }
+            
+            /* 모바일 하단 네비게이션 바 */
+            .mobile-bottom-nav {
+                position: fixed;
+                bottom: 0;
+                left: 0;
+                right: 0;
+                background: white;
+                box-shadow: 0 -2px 10px rgba(0,0,0,0.1);
+                padding: 8px 0;
+                z-index: 1000;
+                display: none;
+            }
+            
+            body.dark-mode .mobile-bottom-nav {
+                background: #2d3748;
+                box-shadow: 0 -2px 10px rgba(0,0,0,0.3);
+            }
+            
+            .mobile-bottom-nav .nav-item {
+                flex: 1;
+                text-align: center;
+                padding: 8px;
+                color: #6b7280;
+                text-decoration: none;
+                transition: all 0.3s ease;
+                position: relative;
+            }
+            
+            .mobile-bottom-nav .nav-item i {
+                font-size: 20px;
+                display: block;
+                margin-bottom: 4px;
+            }
+            
+            .mobile-bottom-nav .nav-item span {
+                font-size: 11px;
+                display: block;
+            }
+            
+            .mobile-bottom-nav .nav-item.active {
+                color: #4f46e5;
+            }
+            
+            body.dark-mode .mobile-bottom-nav .nav-item {
+                color: #9ca3af;
+            }
+            
+            body.dark-mode .mobile-bottom-nav .nav-item.active {
+                color: #818cf8;
+            }
+            
+            .mobile-bottom-nav .nav-item.active::before {
+                content: '';
+                position: absolute;
+                top: 0;
+                left: 50%;
+                transform: translateX(-50%);
+                width: 40px;
+                height: 3px;
+                background: #4f46e5;
+                border-radius: 0 0 3px 3px;
+            }
+            
+            body.dark-mode .mobile-bottom-nav .nav-item.active::before {
+                background: #818cf8;
+            }
+            
+            /* 모바일에서만 표시 */
+            @media (max-width: 768px) {
+                .mobile-bottom-nav {
+                    display: flex;
+                }
+                
+                /* 상단 네비게이션 간소화 */
+                nav .container > div > div.flex.items-center.space-x-4:not(.mobile-only) {
+                    display: none !important;
+                }
+                
+                /* 하단 네비 공간 확보 */
+                body {
+                    padding-bottom: 70px;
+                }
+            }
+            
+            /* 리플 효과 */
+            .ripple {
+                position: relative;
+                overflow: hidden;
+            }
+            
+            .ripple-effect {
+                position: absolute;
+                border-radius: 50%;
+                background: rgba(255, 255, 255, 0.6);
+                transform: scale(0);
+                animation: ripple-animation 0.6s ease-out;
+                pointer-events: none;
+            }
+            
+            @keyframes ripple-animation {
+                to {
+                    transform: scale(4);
+                    opacity: 0;
+                }
+            }
+            
+            /* 스켈레톤 로딩 */
+            .skeleton {
+                background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
+                background-size: 200% 100%;
+                animation: skeleton-loading 1.5s infinite;
+                border-radius: 4px;
+            }
+            
+            body.dark-mode .skeleton {
+                background: linear-gradient(90deg, #2d3748 25%, #4a5568 50%, #2d3748 75%);
+                background-size: 200% 100%;
+            }
+            
+            @keyframes skeleton-loading {
+                0% {
+                    background-position: 200% 0;
+                }
+                100% {
+                    background-position: -200% 0;
+                }
+            }
+            
+            .skeleton-text {
+                height: 16px;
+                margin-bottom: 8px;
+            }
+            
+            .skeleton-title {
+                height: 24px;
+                margin-bottom: 12px;
+                width: 60%;
+            }
+            
+            .skeleton-card {
+                height: 100px;
+                margin-bottom: 16px;
+            }
         </style>
     </head>
     <body class="bg-gradient-to-br from-blue-50 to-indigo-100 min-h-screen">
@@ -2313,6 +2457,11 @@ app.get('/', (c) => {
                     <a href="/" class="text-xl font-bold text-indigo-600">
                         <i class="fas fa-users mr-2"></i>YEONBAM SEASON 2
                     </a>
+                    <div class="flex items-center space-x-4 mobile-only">
+                        <button onclick="toggleDarkMode()" class="dark-mode-toggle text-gray-700" title="다크 모드 전환">
+                            <i class="fas fa-moon" id="darkModeIcon"></i>
+                        </button>
+                    </div>
                     <div class="flex items-center space-x-4">
                         <a href="/teams" class="text-gray-700 hover:text-indigo-600 transition">
                             <i class="fas fa-users mr-1"></i>팀 현황
@@ -2884,7 +3033,60 @@ app.get('/', (c) => {
                     alert('메시지 전송 중 오류가 발생했습니다.');
                 }
             }
+            
+            // 리플 효과 함수
+            function createRipple(event) {
+                const button = event.currentTarget;
+                const ripple = document.createElement('span');
+                const rect = button.getBoundingClientRect();
+                const size = Math.max(rect.width, rect.height);
+                const x = event.clientX - rect.left - size / 2;
+                const y = event.clientY - rect.top - size / 2;
+                
+                ripple.style.width = ripple.style.height = size + 'px';
+                ripple.style.left = x + 'px';
+                ripple.style.top = y + 'px';
+                ripple.classList.add('ripple-effect');
+                
+                button.appendChild(ripple);
+                
+                setTimeout(() => ripple.remove(), 600);
+            }
+            
+            // 모든 버튼에 리플 효과 추가
+            document.addEventListener('DOMContentLoaded', () => {
+                document.querySelectorAll('button, .ripple').forEach(btn => {
+                    if (!btn.classList.contains('no-ripple')) {
+                        btn.classList.add('ripple');
+                        btn.addEventListener('click', createRipple);
+                    }
+                });
+            });
         </script>
+        
+        <!-- 모바일 하단 네비게이션 -->
+        <div class="mobile-bottom-nav">
+            <a href="/" class="nav-item active">
+                <i class="fas fa-home"></i>
+                <span>홈</span>
+            </a>
+            <a href="/teams" class="nav-item">
+                <i class="fas fa-users"></i>
+                <span>팀</span>
+            </a>
+            <a href="/messages" class="nav-item">
+                <i class="fas fa-envelope"></i>
+                <span>쪽지</span>
+            </a>
+            <a href="/vote" class="nav-item">
+                <i class="fas fa-star"></i>
+                <span>투표</span>
+            </a>
+            <a href="/admin" class="nav-item">
+                <i class="fas fa-cog"></i>
+                <span>관리자</span>
+            </a>
+        </div>
     </body>
     </html>
   `)
@@ -3008,6 +3210,150 @@ app.get('/teams', async (c) => {
             body.dark-mode .dark-mode-toggle:hover {
                 background: rgba(255,255,255,0.1);
             }
+            
+            /* 모바일 하단 네비게이션 바 */
+            .mobile-bottom-nav {
+                position: fixed;
+                bottom: 0;
+                left: 0;
+                right: 0;
+                background: white;
+                box-shadow: 0 -2px 10px rgba(0,0,0,0.1);
+                padding: 8px 0;
+                z-index: 1000;
+                display: none;
+            }
+            
+            body.dark-mode .mobile-bottom-nav {
+                background: #2d3748;
+                box-shadow: 0 -2px 10px rgba(0,0,0,0.3);
+            }
+            
+            .mobile-bottom-nav .nav-item {
+                flex: 1;
+                text-align: center;
+                padding: 8px;
+                color: #6b7280;
+                text-decoration: none;
+                transition: all 0.3s ease;
+                position: relative;
+            }
+            
+            .mobile-bottom-nav .nav-item i {
+                font-size: 20px;
+                display: block;
+                margin-bottom: 4px;
+            }
+            
+            .mobile-bottom-nav .nav-item span {
+                font-size: 11px;
+                display: block;
+            }
+            
+            .mobile-bottom-nav .nav-item.active {
+                color: #4f46e5;
+            }
+            
+            body.dark-mode .mobile-bottom-nav .nav-item {
+                color: #9ca3af;
+            }
+            
+            body.dark-mode .mobile-bottom-nav .nav-item.active {
+                color: #818cf8;
+            }
+            
+            .mobile-bottom-nav .nav-item.active::before {
+                content: '';
+                position: absolute;
+                top: 0;
+                left: 50%;
+                transform: translateX(-50%);
+                width: 40px;
+                height: 3px;
+                background: #4f46e5;
+                border-radius: 0 0 3px 3px;
+            }
+            
+            body.dark-mode .mobile-bottom-nav .nav-item.active::before {
+                background: #818cf8;
+            }
+            
+            /* 모바일에서만 표시 */
+            @media (max-width: 768px) {
+                .mobile-bottom-nav {
+                    display: flex;
+                }
+                
+                /* 상단 네비게이션 간소화 */
+                nav .container > div > div.flex.items-center.space-x-4:not(.mobile-only) {
+                    display: none !important;
+                }
+                
+                /* 하단 네비 공간 확보 */
+                body {
+                    padding-bottom: 70px;
+                }
+            }
+            
+            /* 리플 효과 */
+            .ripple {
+                position: relative;
+                overflow: hidden;
+            }
+            
+            .ripple-effect {
+                position: absolute;
+                border-radius: 50%;
+                background: rgba(255, 255, 255, 0.6);
+                transform: scale(0);
+                animation: ripple-animation 0.6s ease-out;
+                pointer-events: none;
+            }
+            
+            @keyframes ripple-animation {
+                to {
+                    transform: scale(4);
+                    opacity: 0;
+                }
+            }
+            
+            /* 스켈레톤 로딩 */
+            .skeleton {
+                background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
+                background-size: 200% 100%;
+                animation: skeleton-loading 1.5s infinite;
+                border-radius: 4px;
+            }
+            
+            body.dark-mode .skeleton {
+                background: linear-gradient(90deg, #2d3748 25%, #4a5568 50%, #2d3748 75%);
+                background-size: 200% 100%;
+            }
+            
+            @keyframes skeleton-loading {
+                0% {
+                    background-position: 200% 0;
+                }
+                100% {
+                    background-position: -200% 0;
+                }
+            }
+            
+            .skeleton-text {
+                height: 16px;
+                margin-bottom: 8px;
+            }
+            
+            .skeleton-title {
+                height: 24px;
+                margin-bottom: 12px;
+                width: 60%;
+            }
+            
+            .skeleton-card {
+                height: 120px;
+                margin-bottom: 16px;
+            }
         </style>
     </head>
     <body class="bg-gradient-to-br from-blue-50 to-indigo-100 min-h-screen">
@@ -3018,6 +3364,11 @@ app.get('/teams', async (c) => {
                     <a href="/" class="text-xl font-bold text-indigo-600">
                         <i class="fas fa-users mr-2"></i>YEONBAM SEASON 2
                     </a>
+                    <div class="flex items-center space-x-4 mobile-only">
+                        <button onclick="toggleDarkMode()" class="dark-mode-toggle text-gray-700" title="다크 모드 전환">
+                            <i class="fas fa-moon" id="darkModeIcon"></i>
+                        </button>
+                    </div>
                     <div class="flex items-center space-x-4">
                         <a href="/teams" class="text-indigo-600 font-semibold">
                             <i class="fas fa-users mr-1"></i>팀 현황
@@ -3213,7 +3564,58 @@ app.get('/teams', async (c) => {
             });
 
             loadTeams();
+            
+            // 리플 효과 함수
+            function createRipple(event) {
+                const button = event.currentTarget;
+                const ripple = document.createElement('span');
+                const rect = button.getBoundingClientRect();
+                const size = Math.max(rect.width, rect.height);
+                const x = event.clientX - rect.left - size / 2;
+                const y = event.clientY - rect.top - size / 2;
+                
+                ripple.style.width = ripple.style.height = size + 'px';
+                ripple.style.left = x + 'px';
+                ripple.style.top = y + 'px';
+                ripple.classList.add('ripple-effect');
+                
+                button.appendChild(ripple);
+                
+                setTimeout(() => ripple.remove(), 600);
+            }
+            
+            // 모든 버튼에 리플 효과 추가
+            document.querySelectorAll('button, .ripple, a.inline-block').forEach(btn => {
+                if (!btn.classList.contains('no-ripple')) {
+                    btn.classList.add('ripple');
+                    btn.addEventListener('click', createRipple);
+                }
+            });
         </script>
+        
+        <!-- 모바일 하단 네비게이션 -->
+        <div class="mobile-bottom-nav">
+            <a href="/" class="nav-item">
+                <i class="fas fa-home"></i>
+                <span>홈</span>
+            </a>
+            <a href="/teams" class="nav-item active">
+                <i class="fas fa-users"></i>
+                <span>팀</span>
+            </a>
+            <a href="/messages" class="nav-item">
+                <i class="fas fa-envelope"></i>
+                <span>쪽지</span>
+            </a>
+            <a href="/vote" class="nav-item">
+                <i class="fas fa-star"></i>
+                <span>투표</span>
+            </a>
+            <a href="/admin" class="nav-item">
+                <i class="fas fa-cog"></i>
+                <span>관리자</span>
+            </a>
+        </div>
     </body>
     </html>
   `)
