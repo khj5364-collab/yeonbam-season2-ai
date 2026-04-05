@@ -541,6 +541,29 @@ app.get('/api/admin/stats', async (c) => {
   }
 })
 
+// MBTI 통계 API
+app.get('/api/admin/mbti-stats', async (c) => {
+  try {
+    const { results: mbtiData } = await c.env.DB.prepare(`
+      SELECT 
+        mbti,
+        COUNT(*) as count
+      FROM participants
+      WHERE mbti IS NOT NULL AND mbti != ''
+      GROUP BY mbti
+      ORDER BY count DESC, mbti ASC
+    `).all()
+    
+    return c.json({
+      success: true,
+      mbti: mbtiData
+    })
+  } catch (error) {
+    console.error('Error fetching MBTI stats:', error)
+    return c.json({ success: false, message: '서버 오류가 발생했습니다.' }, 500)
+  }
+})
+
 // 10. 관리자 - 팀 랜덤 배정 API (모든 참가자 재배정)
 app.post('/api/admin/assign-teams', async (c) => {
   try {
@@ -913,6 +936,105 @@ app.get('/messages', (c) => {
         <title>익명 쪽지 - YEONBAM SEASON 2 AI</title>
         <script src="https://cdn.tailwindcss.com"></script>
         <link href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.4.0/css/all.min.css" rel="stylesheet">
+        <style>
+            @keyframes fadeInUp {
+                from { opacity: 0; transform: translateY(20px); }
+                to { opacity: 1; transform: translateY(0); }
+            }
+            
+            @keyframes slideIn {
+                from { opacity: 0; transform: translateX(-20px); }
+                to { opacity: 1; transform: translateX(0); }
+            }
+            
+            .message-card {
+                animation: fadeInUp 0.5s ease-out;
+                transition: all 0.3s ease;
+            }
+            
+            .message-card:hover {
+                transform: translateY(-5px);
+                box-shadow: 0 10px 30px rgba(0,0,0,0.15);
+            }
+            
+            .toast {
+                position: fixed;
+                top: 20px;
+                right: 20px;
+                padding: 16px 24px;
+                border-radius: 8px;
+                box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+                z-index: 9999;
+                animation: slideIn 0.3s ease-out;
+                max-width: 400px;
+            }
+            
+            .toast.success { background: linear-gradient(135deg, #10b981 0%, #059669 100%); color: white; }
+            .toast.error { background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%); color: white; }
+            .toast.info { background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%); color: white; }
+            
+            /* 다크 모드 */
+            body.dark-mode {
+                background: linear-gradient(135deg, #1a202c 0%, #2d3748 100%);
+            }
+            
+            body.dark-mode nav {
+                background: #2d3748;
+                border-bottom: 1px solid #4a5568;
+            }
+            
+            body.dark-mode .bg-white {
+                background: #2d3748;
+            }
+            
+            body.dark-mode .text-gray-800,
+            body.dark-mode .text-gray-700,
+            body.dark-mode .text-purple-800 {
+                color: #e2e8f0;
+            }
+            
+            body.dark-mode .text-gray-600 {
+                color: #a0aec0;
+            }
+            
+            body.dark-mode .text-gray-500 {
+                color: #718096;
+            }
+            
+            body.dark-mode .border-gray-300 {
+                border-color: #4a5568;
+            }
+            
+            body.dark-mode input,
+            body.dark-mode textarea {
+                background: #1a202c;
+                color: #e2e8f0;
+                border-color: #4a5568;
+            }
+            
+            body.dark-mode .bg-purple-50 {
+                background: rgba(45, 55, 72, 0.5);
+            }
+            
+            body.dark-mode .bg-gray-50 {
+                background: #1a202c;
+            }
+            
+            .dark-mode-toggle {
+                cursor: pointer;
+                padding: 8px 12px;
+                border-radius: 8px;
+                transition: all 0.3s ease;
+            }
+            
+            .dark-mode-toggle:hover {
+                background: rgba(0,0,0,0.1);
+            }
+            
+            body.dark-mode .dark-mode-toggle:hover {
+                background: rgba(255,255,255,0.1);
+            }
+        </style>
     </head>
     <body class="bg-gradient-to-br from-purple-50 to-pink-100 min-h-screen">
         <!-- 상단 네비게이션 -->
@@ -922,7 +1044,7 @@ app.get('/messages', (c) => {
                     <a href="/" class="text-xl font-bold text-indigo-600">
                         <i class="fas fa-users mr-2"></i>YEONBAM SEASON 2
                     </a>
-                    <div class="flex space-x-4">
+                    <div class="flex items-center space-x-4">
                         <a href="/teams" class="text-gray-700 hover:text-indigo-600 transition">
                             <i class="fas fa-users mr-1"></i>팀 현황
                         </a>
@@ -935,6 +1057,9 @@ app.get('/messages', (c) => {
                         <a href="/admin" class="text-gray-700 hover:text-gray-900 transition">
                             <i class="fas fa-cog mr-1"></i>관리자
                         </a>
+                        <button onclick="toggleDarkMode()" class="dark-mode-toggle text-gray-700" title="다크 모드 전환">
+                            <i class="fas fa-moon" id="darkModeIcon"></i>
+                        </button>
                     </div>
                 </div>
             </div>
@@ -1099,7 +1224,7 @@ app.get('/messages', (c) => {
                 const nickname = document.getElementById('loginNickname').value.trim();
 
                 if (!code || !nickname) {
-                    alert('코드와 닉네임을 입력해주세요.');
+                    showToast('코드와 닉네임을 입력해주세요.', 'error');
                     return;
                 }
 
@@ -1114,10 +1239,11 @@ app.get('/messages', (c) => {
                         document.getElementById('mainScreen').classList.remove('hidden');
                         document.getElementById('userNickname').textContent = nickname;
                         
+                        showToast('로그인 성공!', 'success');
                         loadInbox();
                     }
                 } catch (error) {
-                    alert(error.response?.data?.message || '로그인 실패. 코드와 닉네임을 확인해주세요.');
+                    showToast(error.response?.data?.message || '로그인 실패. 코드와 닉네임을 확인해주세요.', 'error');
                 }
             }
 
@@ -1220,7 +1346,7 @@ app.get('/messages', (c) => {
                 const content = document.getElementById('messageContent').value.trim();
 
                 if (!receiverNickname || !content) {
-                    alert('받는 사람과 내용을 입력해주세요.');
+                    showToast('받는 사람과 내용을 입력해주세요.', 'error');
                     return;
                 }
 
@@ -1233,13 +1359,13 @@ app.get('/messages', (c) => {
                     });
 
                     if (response.data.success) {
-                        alert('쪽지를 보냈습니다!');
+                        showToast('쪽지를 보냈습니다!', 'success');
                         document.getElementById('receiverNickname').value = '';
                         document.getElementById('messageContent').value = '';
                         showTab('sent');
                     }
                 } catch (error) {
-                    alert(error.response?.data?.message || '쪽지 전송 실패');
+                    showToast(error.response?.data?.message || '쪽지 전송 실패', 'error');
                 }
             }
 
@@ -1251,6 +1377,47 @@ app.get('/messages', (c) => {
                     console.error('Error marking as read:', error);
                 }
             }
+            
+            // Toast 알림 함수
+            function showToast(message, type = 'info') {
+                const toast = document.createElement('div');
+                toast.className = \`toast \${type}\`;
+                
+                let icon = 'fa-info-circle';
+                if (type === 'success') icon = 'fa-check-circle';
+                else if (type === 'error') icon = 'fa-exclamation-circle';
+                
+                toast.innerHTML = \`
+                    <i class="fas \${icon} mr-2"></i>
+                    <span>\${message}</span>
+                \`;
+                
+                document.body.appendChild(toast);
+                
+                setTimeout(() => {
+                    toast.style.opacity = '0';
+                    toast.style.transform = 'translateX(100%)';
+                    setTimeout(() => toast.remove(), 300);
+                }, 3000);
+            }
+            
+            // 다크 모드 토글
+            function toggleDarkMode() {
+                document.body.classList.toggle('dark-mode');
+                const isDark = document.body.classList.contains('dark-mode');
+                localStorage.setItem('darkMode', isDark ? 'enabled' : 'disabled');
+                
+                const icon = document.getElementById('darkModeIcon');
+                icon.className = isDark ? 'fas fa-sun' : 'fas fa-moon';
+            }
+            
+            // 페이지 로드 시 다크 모드 설정 복원
+            window.addEventListener('DOMContentLoaded', () => {
+                if (localStorage.getItem('darkMode') === 'enabled') {
+                    document.body.classList.add('dark-mode');
+                    document.getElementById('darkModeIcon').className = 'fas fa-sun';
+                }
+            });
         </script>
     </body>
     </html>
@@ -3063,6 +3230,75 @@ app.get('/admin', (c) => {
         <title>관리자 페이지</title>
         <script src="https://cdn.tailwindcss.com"></script>
         <link href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.4.0/css/all.min.css" rel="stylesheet">
+        <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+        <style>
+            @keyframes fadeInUp {
+                from { opacity: 0; transform: translateY(20px); }
+                to { opacity: 1; transform: translateY(0); }
+            }
+            
+            .stat-card {
+                animation: fadeInUp 0.5s ease-out;
+                transition: all 0.3s ease;
+            }
+            
+            .stat-card:hover {
+                transform: translateY(-5px);
+                box-shadow: 0 10px 30px rgba(0,0,0,0.15);
+            }
+            
+            /* 다크 모드 */
+            body.dark-mode {
+                background: linear-gradient(135deg, #1a202c 0%, #2d3748 100%);
+            }
+            
+            body.dark-mode .bg-white {
+                background: #2d3748;
+            }
+            
+            body.dark-mode .text-gray-800,
+            body.dark-mode .text-gray-700 {
+                color: #e2e8f0;
+            }
+            
+            body.dark-mode .text-gray-600 {
+                color: #a0aec0;
+            }
+            
+            body.dark-mode .text-gray-500 {
+                color: #718096;
+            }
+            
+            body.dark-mode .border-gray-300 {
+                border-color: #4a5568;
+            }
+            
+            body.dark-mode input,
+            body.dark-mode select {
+                background: #1a202c;
+                color: #e2e8f0;
+                border-color: #4a5568;
+            }
+            
+            body.dark-mode .bg-gray-50 {
+                background: #1a202c;
+            }
+            
+            .dark-mode-toggle {
+                cursor: pointer;
+                padding: 8px 12px;
+                border-radius: 8px;
+                transition: all 0.3s ease;
+            }
+            
+            .dark-mode-toggle:hover {
+                background: rgba(0,0,0,0.1);
+            }
+            
+            body.dark-mode .dark-mode-toggle:hover {
+                background: rgba(255,255,255,0.1);
+            }
+        </style>
     </head>
     <body class="bg-gradient-to-br from-gray-50 to-gray-100 min-h-screen">
         <!-- 로그인 화면 -->
@@ -3096,12 +3332,15 @@ app.get('/admin', (c) => {
 
         <!-- 관리자 페이지 (로그인 후 표시) -->
         <div id="adminContent" class="container mx-auto px-4 py-8 hidden">
-            <div class="max-w-4xl mx-auto">
+            <div class="max-w-7xl mx-auto">
                 <div class="flex items-center justify-between mb-8">
                     <h1 class="text-4xl font-bold text-gray-800">
-                        <i class="fas fa-cog text-indigo-600 mr-2"></i>관리자 페이지
+                        <i class="fas fa-cog text-indigo-600 mr-2"></i>관리자 대시보드
                     </h1>
-                    <div class="flex space-x-2">
+                    <div class="flex items-center space-x-2">
+                        <button onclick="toggleDarkMode()" class="dark-mode-toggle text-gray-700" title="다크 모드 전환">
+                            <i class="fas fa-moon" id="darkModeIcon"></i>
+                        </button>
                         <a href="/" class="bg-indigo-600 text-white px-4 py-2 rounded-lg hover:bg-indigo-700 transition duration-200">
                             <i class="fas fa-home mr-2"></i>홈으로
                         </a>
@@ -3109,6 +3348,94 @@ app.get('/admin', (c) => {
                                 class="bg-red-500 text-white px-4 py-2 rounded-lg hover:bg-red-600 transition duration-200">
                             <i class="fas fa-sign-out-alt mr-2"></i>로그아웃
                         </button>
+                    </div>
+                </div>
+                
+                <!-- 대시보드 통계 카드 -->
+                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+                    <!-- 전체 참가자 카드 -->
+                    <div class="stat-card bg-white rounded-xl shadow-lg p-6">
+                        <div class="flex items-center justify-between">
+                            <div>
+                                <p class="text-sm text-gray-600 mb-1">전체 참가자</p>
+                                <p class="text-3xl font-bold text-indigo-600" id="dashTotalCount">0</p>
+                            </div>
+                            <div class="bg-indigo-100 rounded-full p-4">
+                                <i class="fas fa-users text-indigo-600 text-2xl"></i>
+                            </div>
+                        </div>
+                        <div class="mt-4 text-xs text-gray-500">
+                            <i class="fas fa-chart-line mr-1"></i>총 등록 인원
+                        </div>
+                    </div>
+                    
+                    <!-- 남성 참가자 카드 -->
+                    <div class="stat-card bg-white rounded-xl shadow-lg p-6">
+                        <div class="flex items-center justify-between">
+                            <div>
+                                <p class="text-sm text-gray-600 mb-1">남성 참가자</p>
+                                <p class="text-3xl font-bold text-blue-600" id="dashMaleCount">0</p>
+                            </div>
+                            <div class="bg-blue-100 rounded-full p-4">
+                                <i class="fas fa-mars text-blue-600 text-2xl"></i>
+                            </div>
+                        </div>
+                        <div class="mt-4 text-xs text-gray-500">
+                            <i class="fas fa-percentage mr-1"></i>
+                            <span id="malePercentage">0%</span>
+                        </div>
+                    </div>
+                    
+                    <!-- 여성 참가자 카드 -->
+                    <div class="stat-card bg-white rounded-xl shadow-lg p-6">
+                        <div class="flex items-center justify-between">
+                            <div>
+                                <p class="text-sm text-gray-600 mb-1">여성 참가자</p>
+                                <p class="text-3xl font-bold text-pink-600" id="dashFemaleCount">0</p>
+                            </div>
+                            <div class="bg-pink-100 rounded-full p-4">
+                                <i class="fas fa-venus text-pink-600 text-2xl"></i>
+                            </div>
+                        </div>
+                        <div class="mt-4 text-xs text-gray-500">
+                            <i class="fas fa-percentage mr-1"></i>
+                            <span id="femalePercentage">0%</span>
+                        </div>
+                    </div>
+                    
+                    <!-- 활성 코드 카드 -->
+                    <div class="stat-card bg-white rounded-xl shadow-lg p-6">
+                        <div class="flex items-center justify-between">
+                            <div>
+                                <p class="text-sm text-gray-600 mb-1">활성 코드</p>
+                                <p class="text-3xl font-bold text-green-600" id="dashActiveCodeCount">0</p>
+                            </div>
+                            <div class="bg-green-100 rounded-full p-4">
+                                <i class="fas fa-key text-green-600 text-2xl"></i>
+                            </div>
+                        </div>
+                        <div class="mt-4 text-xs text-gray-500">
+                            <i class="fas fa-toggle-on mr-1"></i>사용 가능한 코드
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- 차트 섹션 -->
+                <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
+                    <!-- 성별 분포 차트 -->
+                    <div class="bg-white rounded-xl shadow-lg p-6">
+                        <h3 class="text-xl font-bold text-gray-800 mb-4">
+                            <i class="fas fa-chart-pie mr-2"></i>성별 분포
+                        </h3>
+                        <canvas id="genderChart"></canvas>
+                    </div>
+                    
+                    <!-- MBTI 분포 차트 -->
+                    <div class="bg-white rounded-xl shadow-lg p-6">
+                        <h3 class="text-xl font-bold text-gray-800 mb-4">
+                            <i class="fas fa-chart-bar mr-2"></i>MBTI 분포 (상위 8개)
+                        </h3>
+                        <canvas id="mbtiChart"></canvas>
                     </div>
                 </div>
 
@@ -3390,9 +3717,12 @@ app.get('/admin', (c) => {
                 loadTeamSettings();
                 loadStats();
                 loadCodes();
+                loadDashboardStats();
+                loadCharts();
                 setInterval(() => {
                     loadStats();
                     loadCodes();
+                    loadDashboardStats();
                 }, 5000);
             }
 
@@ -3476,7 +3806,123 @@ app.get('/admin', (c) => {
                         </div>
                     \`).join('');
                 } catch (error) {
-                    alert('통계를 불러오는데 실패했습니다.');
+                    console.error('통계를 불러오는데 실패했습니다:', error);
+                }
+            }
+            
+            // 대시보드 통계 로드
+            async function loadDashboardStats() {
+                try {
+                    const response = await axios.get('/api/admin/stats');
+                    const stats = response.data.stats;
+                    
+                    // 대시보드 카드 업데이트
+                    document.getElementById('dashTotalCount').textContent = stats.total;
+                    document.getElementById('dashMaleCount').textContent = stats.male;
+                    document.getElementById('dashFemaleCount').textContent = stats.female;
+                    
+                    // 성비 퍼센티지 계산
+                    const total = stats.total || 1;
+                    const malePercentage = ((stats.male / total) * 100).toFixed(1);
+                    const femalePercentage = ((stats.female / total) * 100).toFixed(1);
+                    document.getElementById('malePercentage').textContent = malePercentage + '%';
+                    document.getElementById('femalePercentage').textContent = femalePercentage + '%';
+                    
+                    // 활성 코드 수 로드
+                    const codesResponse = await axios.get('/api/admin/codes');
+                    const activeCodes = codesResponse.data.codes.filter(c => c.is_active).length;
+                    document.getElementById('dashActiveCodeCount').textContent = activeCodes;
+                } catch (error) {
+                    console.error('대시보드 통계 로드 실패:', error);
+                }
+            }
+            
+            // 차트 로드
+            let genderChart = null;
+            let mbtiChart = null;
+            
+            async function loadCharts() {
+                try {
+                    // 성별 분포 차트
+                    const statsResponse = await axios.get('/api/admin/stats');
+                    const stats = statsResponse.data.stats;
+                    
+                    // 성별 파이 차트
+                    const genderCtx = document.getElementById('genderChart').getContext('2d');
+                    if (genderChart) genderChart.destroy();
+                    genderChart = new Chart(genderCtx, {
+                        type: 'doughnut',
+                        data: {
+                            labels: ['남성', '여성'],
+                            datasets: [{
+                                data: [stats.male, stats.female],
+                                backgroundColor: [
+                                    'rgba(59, 130, 246, 0.8)',  // blue
+                                    'rgba(236, 72, 153, 0.8)'   // pink
+                                ],
+                                borderColor: [
+                                    'rgba(59, 130, 246, 1)',
+                                    'rgba(236, 72, 153, 1)'
+                                ],
+                                borderWidth: 2
+                            }]
+                        },
+                        options: {
+                            responsive: true,
+                            maintainAspectRatio: true,
+                            plugins: {
+                                legend: {
+                                    position: 'bottom',
+                                    labels: {
+                                        font: { size: 14 },
+                                        padding: 20
+                                    }
+                                }
+                            }
+                        }
+                    });
+                    
+                    // MBTI 분포 차트
+                    const mbtiResponse = await axios.get('/api/admin/mbti-stats');
+                    const mbtiData = mbtiResponse.data.mbti || [];
+                    
+                    // 상위 8개 MBTI만 표시
+                    const topMbti = mbtiData.slice(0, 8);
+                    
+                    const mbtiCtx = document.getElementById('mbtiChart').getContext('2d');
+                    if (mbtiChart) mbtiChart.destroy();
+                    mbtiChart = new Chart(mbtiCtx, {
+                        type: 'bar',
+                        data: {
+                            labels: topMbti.map(m => m.mbti || '미정'),
+                            datasets: [{
+                                label: '인원수',
+                                data: topMbti.map(m => m.count),
+                                backgroundColor: 'rgba(99, 102, 241, 0.8)',
+                                borderColor: 'rgba(99, 102, 241, 1)',
+                                borderWidth: 2
+                            }]
+                        },
+                        options: {
+                            responsive: true,
+                            maintainAspectRatio: true,
+                            scales: {
+                                y: {
+                                    beginAtZero: true,
+                                    ticks: {
+                                        stepSize: 1
+                                    }
+                                }
+                            },
+                            plugins: {
+                                legend: {
+                                    display: false
+                                }
+                            }
+                        }
+                    });
+                } catch (error) {
+                    console.error('차트 로드 실패:', error);
                 }
             }
 
@@ -3987,6 +4433,38 @@ app.get('/admin', (c) => {
                     alert('삭제 중 오류가 발생했습니다.');
                 }
             }
+            
+            // 다크 모드 토글
+            function toggleDarkMode() {
+                const body = document.body;
+                const icon = document.getElementById('darkModeIcon');
+                
+                body.classList.toggle('dark-mode');
+                
+                if (body.classList.contains('dark-mode')) {
+                    icon.classList.remove('fa-moon');
+                    icon.classList.add('fa-sun');
+                    localStorage.setItem('darkMode', 'enabled');
+                } else {
+                    icon.classList.remove('fa-sun');
+                    icon.classList.add('fa-moon');
+                    localStorage.setItem('darkMode', 'disabled');
+                }
+            }
+            
+            // 페이지 로드 시 다크 모드 설정 복원
+            window.addEventListener('DOMContentLoaded', () => {
+                const darkMode = localStorage.getItem('darkMode');
+                const icon = document.getElementById('darkModeIcon');
+                
+                if (darkMode === 'enabled') {
+                    document.body.classList.add('dark-mode');
+                    if (icon) {
+                        icon.classList.remove('fa-moon');
+                        icon.classList.add('fa-sun');
+                    }
+                }
+            });
         </script>
     </body>
     </html>
