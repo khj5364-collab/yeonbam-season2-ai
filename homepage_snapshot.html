@@ -1,0 +1,510 @@
+
+    <!DOCTYPE html>
+    <html lang="ko">
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>YEONBAM SEASON 2 AI</title>
+        <script src="https://cdn.tailwindcss.com"></script>
+        <link href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.4.0/css/all.min.css" rel="stylesheet">
+    </head>
+    <body class="bg-gradient-to-br from-blue-50 to-indigo-100 min-h-screen">
+        <!-- 상단 네비게이션 -->
+        <nav class="bg-white shadow-md mb-6">
+            <div class="container mx-auto px-4">
+                <div class="flex items-center justify-between py-4">
+                    <a href="/" class="text-xl font-bold text-indigo-600">
+                        <i class="fas fa-users mr-2"></i>YEONBAM SEASON 2
+                    </a>
+                    <div class="flex space-x-4">
+                        <a href="/teams" class="text-gray-700 hover:text-indigo-600 transition">
+                            <i class="fas fa-users mr-1"></i>팀 현황
+                        </a>
+                        <a href="/messages" class="text-gray-700 hover:text-purple-600 transition">
+                            <i class="fas fa-envelope mr-1"></i>익명 쪽지
+                        </a>
+                        <a href="/vote" class="text-gray-700 hover:text-orange-600 transition">
+                            <i class="fas fa-star mr-1"></i>호감도 투표
+                        </a>
+                        <a href="/admin" class="text-gray-700 hover:text-gray-900 transition">
+                            <i class="fas fa-cog mr-1"></i>관리자
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </nav>
+        
+        <div class="container mx-auto px-4 py-8">
+            <div class="max-w-md mx-auto bg-white rounded-2xl shadow-xl p-8">
+                <div class="text-center mb-8">
+                    <i class="fas fa-users text-indigo-600 text-6xl mb-4"></i>
+                    <h1 class="text-3xl font-bold text-gray-800 mb-2">YEONBAM SEASON 2 AI</h1>
+                </div>
+
+                <!-- 신규/재입장 선택 -->
+                <div id="step0" class="step">
+                    <div class="mb-6">
+                        <label class="block text-gray-700 font-semibold mb-4 text-center">
+                            <i class="fas fa-user-plus mr-2"></i>입장 유형을 선택하세요
+                        </label>
+                        <div class="grid grid-cols-2 gap-4">
+                            <button onclick="selectEntryType('new')" 
+                                    class="entry-type-btn py-8 border-2 border-gray-300 rounded-lg hover:border-indigo-500 hover:bg-indigo-50 transition duration-200">
+                                <i class="fas fa-user-plus text-indigo-600 text-4xl mb-3"></i>
+                                <div class="font-bold text-lg">신규 입장자</div>
+                                <div class="text-sm text-gray-600 mt-1">처음 방문하시는 분</div>
+                            </button>
+                            <button onclick="selectEntryType('reentry')" 
+                                    class="entry-type-btn py-8 border-2 border-gray-300 rounded-lg hover:border-green-500 hover:bg-green-50 transition duration-200">
+                                <i class="fas fa-user-check text-green-600 text-4xl mb-3"></i>
+                                <div class="font-bold text-lg">재입장자</div>
+                                <div class="text-sm text-gray-600 mt-1">이미 등록하신 분</div>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 신규 입장자 - 입장 코드 입력 -->
+                <div id="step1-new" class="step hidden">
+                    <div class="mb-6">
+                        <label class="block text-gray-700 font-semibold mb-2">
+                            <i class="fas fa-key mr-2"></i>입장 코드
+                        </label>
+                        <input type="text" id="accessCodeNew" 
+                               class="w-full px-4 py-3 border-2 border-gray-300 rounded-lg focus:border-indigo-500 focus:outline-none" 
+                               placeholder="입장 코드를 입력하세요">
+                    </div>
+                    <button onclick="verifyCodeNew()" 
+                            class="w-full bg-indigo-600 text-white py-3 rounded-lg font-semibold hover:bg-indigo-700 transition duration-200">
+                        <i class="fas fa-arrow-right mr-2"></i>다음
+                    </button>
+                    <button onclick="backToStep(0)" 
+                            class="w-full mt-3 bg-gray-300 text-gray-700 py-3 rounded-lg font-semibold hover:bg-gray-400 transition duration-200">
+                        <i class="fas fa-arrow-left mr-2"></i>돌아가기
+                    </button>
+                </div>
+
+                <!-- 재입장자 - 코드와 닉네임 입력 -->
+                <div id="step1-reentry" class="step hidden">
+                    <div class="mb-6">
+                        <label class="block text-gray-700 font-semibold mb-2">
+                            <i class="fas fa-key mr-2"></i>입장 코드
+                        </label>
+                        <input type="text" id="accessCodeReentry" 
+                               class="w-full px-4 py-3 border-2 border-gray-300 rounded-lg focus:border-indigo-500 focus:outline-none" 
+                               placeholder="입장 코드를 입력하세요">
+                    </div>
+                    <div class="mb-6">
+                        <label class="block text-gray-700 font-semibold mb-2">
+                            <i class="fas fa-user mr-2"></i>닉네임
+                        </label>
+                        <input type="text" id="nicknameReentry" 
+                               class="w-full px-4 py-3 border-2 border-gray-300 rounded-lg focus:border-indigo-500 focus:outline-none" 
+                               placeholder="등록하신 닉네임을 입력하세요">
+                    </div>
+                    <button onclick="verifyReentry()" 
+                            class="w-full bg-green-600 text-white py-3 rounded-lg font-semibold hover:bg-green-700 transition duration-200">
+                        <i class="fas fa-sign-in-alt mr-2"></i>재입장
+                    </button>
+                    <button onclick="backToStep(0)" 
+                            class="w-full mt-3 bg-gray-300 text-gray-700 py-3 rounded-lg font-semibold hover:bg-gray-400 transition duration-200">
+                        <i class="fas fa-arrow-left mr-2"></i>돌아가기
+                    </button>
+                </div>
+
+                <!-- 닉네임, 성별, MBTI 입력 -->
+                <div id="step2" class="step hidden">
+                    <div class="mb-6">
+                        <label class="block text-gray-700 font-semibold mb-2">
+                            <i class="fas fa-user mr-2"></i>닉네임
+                        </label>
+                        <input type="text" id="nickname" 
+                               class="w-full px-4 py-3 border-2 border-gray-300 rounded-lg focus:border-indigo-500 focus:outline-none" 
+                               placeholder="사용하실 닉네임을 입력하세요">
+                    </div>
+                    <div class="mb-6">
+                        <label class="block text-gray-700 font-semibold mb-2">
+                            <i class="fas fa-venus-mars mr-2"></i>성별
+                        </label>
+                        <div class="flex gap-4">
+                            <button onclick="selectGender('male')" 
+                                    class="gender-btn flex-1 py-3 border-2 border-gray-300 rounded-lg hover:border-blue-500 transition duration-200">
+                                <i class="fas fa-mars text-blue-500 text-2xl"></i>
+                                <div class="mt-1 font-semibold">남성</div>
+                            </button>
+                            <button onclick="selectGender('female')" 
+                                    class="gender-btn flex-1 py-3 border-2 border-gray-300 rounded-lg hover:border-pink-500 transition duration-200">
+                                <i class="fas fa-venus text-pink-500 text-2xl"></i>
+                                <div class="mt-1 font-semibold">여성</div>
+                            </button>
+                        </div>
+                    </div>
+                    <div class="mb-6">
+                        <label class="block text-gray-700 font-semibold mb-2">
+                            <i class="fas fa-brain mr-2"></i>MBTI
+                        </label>
+                        <input type="text" id="mbti" 
+                               class="w-full px-4 py-3 border-2 border-gray-300 rounded-lg focus:border-indigo-500 focus:outline-none uppercase" 
+                               placeholder="예: ENFP, ISTJ" 
+                               maxlength="4"
+                               oninput="this.value = this.value.toUpperCase()">
+                        <p class="text-xs text-gray-500 mt-1">
+                            <i class="fas fa-info-circle mr-1"></i>4자리 MBTI 유형을 입력하세요
+                        </p>
+                    </div>
+                    <div class="mb-6">
+                        <label class="block text-gray-700 font-semibold mb-2">
+                            <i class="fas fa-users mr-2"></i>팀 번호
+                        </label>
+                        <select id="teamNumber" 
+                                class="w-full px-4 py-3 border-2 border-gray-300 rounded-lg focus:border-indigo-500 focus:outline-none">
+                            <option value="">팀을 선택하세요 (선택사항)</option>
+                            <option value="1">Team 1</option>
+                            <option value="2">Team 2</option>
+                            <option value="3">Team 3</option>
+                            <option value="4">Team 4</option>
+                            <option value="5">Team 5</option>
+                            <option value="6">Team 6</option>
+                        </select>
+                        <p class="text-xs text-gray-500 mt-1">
+                            <i class="fas fa-info-circle mr-1"></i>처음 입장 시 팀을 지정하거나, 나중에 관리자가 배정할 수 있습니다
+                        </p>
+                    </div>
+                    <button onclick="submitRegistration()" 
+                            class="w-full bg-indigo-600 text-white py-3 rounded-lg font-semibold hover:bg-indigo-700 transition duration-200">
+                        <i class="fas fa-check mr-2"></i>등록 완료
+                    </button>
+                </div>
+
+
+
+                <!-- 완료 (신규 입장자) -->
+                <div id="step4-new" class="step hidden text-center">
+                    <i class="fas fa-check-circle text-green-500 text-6xl mb-4"></i>
+                    <h2 class="text-2xl font-bold text-gray-800 mb-4">등록 완료!</h2>
+                    <div id="newUserTeamInfo" class="mb-6">
+                        <!-- 팀 정보 또는 대기 메시지가 여기 표시됨 -->
+                    </div>
+                    
+                    <div class="grid grid-cols-1 gap-3 mb-4">
+                        <a href="/teams" class="bg-indigo-600 text-white px-6 py-3 rounded-lg font-semibold hover:bg-indigo-700 transition duration-200">
+                            <i class="fas fa-users mr-2"></i>전체 팀 보기
+                        </a>
+                        <a href="/messages" class="bg-purple-600 text-white px-6 py-3 rounded-lg font-semibold hover:bg-purple-700 transition duration-200">
+                            <i class="fas fa-envelope mr-2"></i>익명 쪽지 보내기
+                        </a>
+                        <a href="/vote" class="bg-orange-600 text-white px-6 py-3 rounded-lg font-semibold hover:bg-orange-700 transition duration-200">
+                            <i class="fas fa-star mr-2"></i>호감도 투표하기
+                        </a>
+                        <button onclick="openAdminMessageModal()" class="bg-green-600 text-white px-6 py-3 rounded-lg font-semibold hover:bg-green-700 transition duration-200">
+                            <i class="fas fa-comment-dots mr-2"></i>관리자에게 문의
+                        </button>
+                        <a href="/" class="bg-gray-300 text-gray-700 px-6 py-3 rounded-lg font-semibold hover:bg-gray-400 transition duration-200">
+                            <i class="fas fa-home mr-2"></i>홈으로
+                        </a>
+                    </div>
+                </div>
+
+                <!-- 완료 (재입장자) -->
+                <div id="step4-reentry" class="step hidden text-center">
+                    <i class="fas fa-user-check text-green-500 text-6xl mb-4"></i>
+                    <h2 class="text-2xl font-bold text-gray-800 mb-4">재입장 완료!</h2>
+                    <div id="reentryTeamInfo" class="bg-indigo-50 rounded-lg p-6 mb-6">
+                        <!-- 팀 정보가 여기 표시됨 -->
+                    </div>
+                    
+                    <div class="grid grid-cols-1 gap-3 mb-4">
+                        <a href="/teams" class="bg-indigo-600 text-white px-6 py-3 rounded-lg font-semibold hover:bg-indigo-700 transition duration-200">
+                            <i class="fas fa-users mr-2"></i>전체 팀 보기
+                        </a>
+                        <a href="/messages" class="bg-purple-600 text-white px-6 py-3 rounded-lg font-semibold hover:bg-purple-700 transition duration-200">
+                            <i class="fas fa-envelope mr-2"></i>익명 쪽지 보내기
+                        </a>
+                        <a href="/vote" class="bg-orange-600 text-white px-6 py-3 rounded-lg font-semibold hover:bg-orange-700 transition duration-200">
+                            <i class="fas fa-star mr-2"></i>호감도 투표하기
+                        </a>
+                        <button onclick="openAdminMessageModal()" class="bg-green-600 text-white px-6 py-3 rounded-lg font-semibold hover:bg-green-700 transition duration-200">
+                            <i class="fas fa-comment-dots mr-2"></i>관리자에게 문의
+                        </button>
+                        <a href="/" class="bg-gray-300 text-gray-700 px-6 py-3 rounded-lg font-semibold hover:bg-gray-400 transition duration-200">
+                            <i class="fas fa-home mr-2"></i>홈으로
+                        </a>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 관리자 버튼 -->
+            <div class="text-center mt-4">
+                <a href="/admin" class="text-gray-600 hover:text-indigo-600 text-sm">
+                    <i class="fas fa-cog mr-1"></i>관리자
+                </a>
+            </div>
+        </div>
+
+        <!-- 관리자 메시지 모달 -->
+        <div id="adminMessageModal" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+            <div class="bg-white rounded-2xl shadow-2xl p-8 max-w-md w-full mx-4">
+                <h2 class="text-2xl font-bold text-gray-800 mb-4">
+                    <i class="fas fa-comment-dots mr-2 text-green-600"></i>관리자에게 문의
+                </h2>
+                <div class="mb-4">
+                    <label class="block text-sm font-semibold text-gray-700 mb-2">메시지</label>
+                    <textarea id="adminMessageContent" rows="5" 
+                              placeholder="요청사항이나 문의사항을 입력해주세요..."
+                              class="w-full px-4 py-3 border-2 border-gray-300 rounded-lg focus:border-green-500 focus:outline-none"></textarea>
+                </div>
+                <div class="flex gap-3">
+                    <button onclick="sendAdminMessage()" 
+                            class="flex-1 bg-green-600 text-white py-3 rounded-lg font-semibold hover:bg-green-700 transition">
+                        <i class="fas fa-paper-plane mr-2"></i>전송
+                    </button>
+                    <button onclick="closeAdminMessageModal()" 
+                            class="flex-1 bg-gray-300 text-gray-700 py-3 rounded-lg font-semibold hover:bg-gray-400 transition">
+                        <i class="fas fa-times mr-2"></i>취소
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <script src="https://cdn.jsdelivr.net/npm/axios@1.6.0/dist/axios.min.js"></script>
+        <script>
+            let currentStep = 0;
+            let entryType = null;
+            let selectedGender = null;
+            let verifiedCode = null;
+            let questions = [];
+
+            function selectEntryType(type) {
+                entryType = type;
+                if (type === 'new') {
+                    showStep('1-new');
+                } else {
+                    showStep('1-reentry');
+                }
+            }
+
+            function backToStep(step) {
+                showStep(step);
+            }
+
+            async function verifyCodeNew() {
+                const code = document.getElementById('accessCodeNew').value.trim();
+                if (!code) {
+                    alert('입장 코드를 입력해주세요.');
+                    return;
+                }
+
+                try {
+                    const response = await axios.post('/api/verify-code', { code });
+                    if (response.data.success) {
+                        verifiedCode = code;
+                        showStep(2);
+                    }
+                } catch (error) {
+                    alert(error.response?.data?.message || '코드 검증 실패');
+                }
+            }
+
+            async function verifyReentry() {
+                const code = document.getElementById('accessCodeReentry').value.trim();
+                const nickname = document.getElementById('nicknameReentry').value.trim();
+                
+                if (!code || !nickname) {
+                    alert('입장 코드와 닉네임을 모두 입력해주세요.');
+                    return;
+                }
+
+                try {
+                    const response = await axios.post('/api/reentry-check', { code, nickname });
+                    if (response.data.success) {
+                        const participant = response.data.participant;
+                        const teamInfoDiv = document.getElementById('reentryTeamInfo');
+                        
+                        // 세션에 로그인 정보 저장
+                        sessionStorage.setItem('userAccessCode', code);
+                        sessionStorage.setItem('userNickname', nickname);
+                        
+                        if (participant.teamNumber) {
+                            teamInfoDiv.innerHTML = `
+                                <p class="text-gray-700 mb-2">환영합니다, <strong>${participant.nickname}</strong>님!</p>
+                                <p class="text-gray-700 mb-2">당신의 팀은</p>
+                                <p class="text-5xl font-bold text-indigo-600">${participant.teamNumber}</p>
+                                <p class="text-gray-700 mt-2">팀 입니다</p>
+                            `;
+                        } else {
+                            teamInfoDiv.innerHTML = `
+                                <p class="text-gray-700 mb-2">환영합니다, <strong>${participant.nickname}</strong>님!</p>
+                                <div class="bg-yellow-50 border-2 border-yellow-400 rounded-lg p-4 mt-4">
+                                    <i class="fas fa-clock text-yellow-600 text-3xl mb-2"></i>
+                                    <p class="text-gray-800 font-semibold">팀 배정 대기중</p>
+                                    <p class="text-gray-600 text-sm mt-2">관리자가 팀을 배정할 때까지 기다려주세요.</p>
+                                </div>
+                            `;
+                        }
+                        
+                        showStep('4-reentry');
+                    }
+                } catch (error) {
+                    alert(error.response?.data?.message || '재입장 확인 실패');
+                }
+            }
+
+            function selectGender(gender) {
+                selectedGender = gender;
+                document.querySelectorAll('.gender-btn').forEach(btn => {
+                    btn.classList.remove('border-indigo-500', 'bg-indigo-50');
+                });
+                event.target.closest('.gender-btn').classList.add('border-indigo-500', 'bg-indigo-50');
+            }
+
+            async function submitRegistration() {
+                const nickname = document.getElementById('nickname').value.trim();
+                const mbti = document.getElementById('mbti').value.trim().toUpperCase();
+                const teamNumber = document.getElementById('teamNumber').value;
+                
+                if (!nickname) {
+                    alert('닉네임을 입력해주세요.');
+                    return;
+                }
+
+                if (!selectedGender) {
+                    alert('성별을 선택해주세요.');
+                    return;
+                }
+
+                if (!mbti) {
+                    alert('MBTI를 입력해주세요.');
+                    return;
+                }
+
+                // MBTI 유효성 검사 (4자리 영문)
+                if (mbti.length !== 4 || !/^[A-Z]{4}$/.test(mbti)) {
+                    alert('올바른 MBTI 형식을 입력해주세요. (예: ENFP, ISTJ)');
+                    return;
+                }
+
+                try {
+                    const response = await axios.post('/api/register', {
+                        nickname,
+                        gender: selectedGender,
+                        accessCode: verifiedCode,
+                        mbti,
+                        teamNumber: teamNumber ? parseInt(teamNumber) : null
+                    });
+
+                    if (response.data.success) {
+                        const teamInfoDiv = document.getElementById('newUserTeamInfo');
+                        
+                        // 세션에 로그인 정보 저장
+                        sessionStorage.setItem('userAccessCode', verifiedCode);
+                        sessionStorage.setItem('userNickname', nickname);
+                        
+                        if (response.data.teamNumber) {
+                            // 팀이 배정된 경우
+                            teamInfoDiv.innerHTML = `
+                                <div class="bg-indigo-50 border-2 border-indigo-500 rounded-lg p-6">
+                                    <i class="fas fa-users text-indigo-600 text-4xl mb-3"></i>
+                                    <p class="text-gray-800 font-semibold mb-2">팀 배정 완료</p>
+                                    <div class="bg-white rounded-lg p-4 mt-3">
+                                        <p class="text-2xl font-bold text-indigo-600">Team ${response.data.teamNumber}</p>
+                                    </div>
+                                    <p class="text-gray-600 text-sm mt-3">재입장하면 팀원을 확인할 수 있습니다.</p>
+                                </div>
+                            `;
+                        } else {
+                            // 팀이 배정되지 않은 경우
+                            teamInfoDiv.innerHTML = `
+                                <div class="bg-yellow-50 border-2 border-yellow-400 rounded-lg p-6">
+                                    <i class="fas fa-clock text-yellow-600 text-4xl mb-3"></i>
+                                    <p class="text-gray-800 font-semibold mb-2">팀 배정 대기중</p>
+                                    <p class="text-gray-600 text-sm">관리자가 팀을 배정할 때까지 기다려주세요.</p>
+                                    <p class="text-gray-600 text-sm mt-2">배정 완료 후 재입장하면 팀 번호를 확인할 수 있습니다.</p>
+                                </div>
+                            `;
+                        }
+                        
+                        showStep('4-new');
+                    }
+                } catch (error) {
+                    alert(error.response?.data?.message || '등록 실패');
+                }
+            }
+
+            function showStep(step) {
+                document.querySelectorAll('.step').forEach(el => el.classList.add('hidden'));
+                document.getElementById(`step${step}`).classList.remove('hidden');
+                currentStep = step;
+            }
+
+            // 관리자 메시지 모달 함수
+            let currentUserData = null;
+
+            function openAdminMessageModal() {
+                // 현재 사용자 정보를 세션에서 가져오기
+                const savedCode = sessionStorage.getItem('userAccessCode');
+                const savedNickname = sessionStorage.getItem('userNickname');
+                
+                if (!savedCode || !savedNickname) {
+                    alert('로그인 정보를 찾을 수 없습니다. 다시 로그인해주세요.');
+                    return;
+                }
+                
+                currentUserData = { accessCode: savedCode, nickname: savedNickname };
+                document.getElementById('adminMessageModal').classList.remove('hidden');
+                document.getElementById('adminMessageContent').value = '';
+            }
+
+            function closeAdminMessageModal() {
+                document.getElementById('adminMessageModal').classList.add('hidden');
+                document.getElementById('adminMessageContent').value = '';
+            }
+
+            async function sendAdminMessage() {
+                const content = document.getElementById('adminMessageContent').value.trim();
+                
+                if (!content) {
+                    alert('메시지 내용을 입력해주세요.');
+                    return;
+                }
+
+                if (!currentUserData) {
+                    alert('사용자 정보를 찾을 수 없습니다.');
+                    return;
+                }
+
+                try {
+                    // 사용자 ID 가져오기
+                    const reentryResponse = await axios.post('/api/re-entry', {
+                        accessCode: currentUserData.accessCode,
+                        nickname: currentUserData.nickname
+                    });
+
+                    if (!reentryResponse.data.success || !reentryResponse.data.user) {
+                        alert('사용자 정보를 확인할 수 없습니다.');
+                        return;
+                    }
+
+                    const userId = reentryResponse.data.user.id;
+
+                    const response = await axios.post('/api/admin/send-message', {
+                        senderId: userId,
+                        senderNickname: currentUserData.nickname,
+                        accessCode: currentUserData.accessCode,
+                        content: content
+                    });
+
+                    if (response.data.success) {
+                        alert('관리자에게 메시지가 전송되었습니다!');
+                        closeAdminMessageModal();
+                    } else {
+                        alert(response.data.message || '메시지 전송에 실패했습니다.');
+                    }
+                } catch (error) {
+                    console.error('Error sending admin message:', error);
+                    alert('메시지 전송 중 오류가 발생했습니다.');
+                }
+            }
+        </script>
+    </body>
+    </html>
+  

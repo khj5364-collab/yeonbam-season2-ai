@@ -1253,6 +1253,89 @@ app.get('/vote', (c) => {
         <title>호감도 투표 - YEONBAM SEASON 2 AI</title>
         <script src="https://cdn.tailwindcss.com"></script>
         <link href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.4.0/css/all.min.css" rel="stylesheet">
+        <style>
+            @keyframes fadeInUp {
+                from {
+                    opacity: 0;
+                    transform: translateY(20px);
+                }
+                to {
+                    opacity: 1;
+                    transform: translateY(0);
+                }
+            }
+            
+            @keyframes bounceIn {
+                0% {
+                    transform: scale(0.3);
+                    opacity: 0;
+                }
+                50% {
+                    transform: scale(1.05);
+                }
+                70% {
+                    transform: scale(0.9);
+                }
+                100% {
+                    transform: scale(1);
+                    opacity: 1;
+                }
+            }
+            
+            @keyframes shine {
+                0% {
+                    box-shadow: 0 0 20px rgba(255, 215, 0, 0.5);
+                }
+                50% {
+                    box-shadow: 0 0 40px rgba(255, 215, 0, 0.8);
+                }
+                100% {
+                    box-shadow: 0 0 20px rgba(255, 215, 0, 0.5);
+                }
+            }
+            
+            .ranking-card {
+                animation: fadeInUp 0.5s ease-out;
+                transition: all 0.3s ease;
+            }
+            
+            .ranking-card:hover {
+                transform: translateY(-8px) scale(1.02);
+                box-shadow: 0 20px 40px rgba(0,0,0,0.2);
+            }
+            
+            .rank-1 {
+                background: linear-gradient(135deg, #FFD700 0%, #FFA500 100%);
+                animation: bounceIn 0.6s ease-out, shine 2s infinite;
+            }
+            
+            .rank-2 {
+                background: linear-gradient(135deg, #C0C0C0 0%, #808080 100%);
+                animation: bounceIn 0.7s ease-out;
+            }
+            
+            .rank-3 {
+                background: linear-gradient(135deg, #CD7F32 0%, #8B4513 100%);
+                animation: bounceIn 0.8s ease-out;
+            }
+            
+            .medal-icon {
+                font-size: 3rem;
+                text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+            }
+            
+            .vote-badge {
+                display: inline-flex;
+                align-items: center;
+                justify-content: center;
+                min-width: 60px;
+                padding: 6px 16px;
+                border-radius: 20px;
+                font-weight: bold;
+                font-size: 18px;
+                box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+            }
+        </style>
     </head>
     <body class="bg-gradient-to-br from-yellow-50 to-orange-100 min-h-screen">
         <!-- 상단 네비게이션 -->
@@ -1627,21 +1710,39 @@ app.get('/vote', (c) => {
                         maleListDiv.innerHTML = '<p class="text-gray-500 text-center py-4">랭킹 정보가 없습니다.</p>';
                     } else {
                         maleListDiv.innerHTML = maleRanking.map((item, idx) => {
-                            const medals = ['🥇', '🥈', '🥉'];
-                            const medal = idx < 3 ? medals[idx] : \`\${idx + 1}위\`;
-                            const bgColor = idx < 3 ? 'bg-gradient-to-r from-blue-100 to-indigo-100' : 'bg-gray-50';
+                            let rankClass = '';
+                            let medalIcon = '';
+                            let cardStyle = '';
+                            
+                            if (idx === 0) {
+                                rankClass = 'rank-1';
+                                medalIcon = '<i class="fas fa-crown medal-icon" style="color: #FFD700;"></i>';
+                                cardStyle = 'border-4 border-yellow-400';
+                            } else if (idx === 1) {
+                                rankClass = 'rank-2';
+                                medalIcon = '<i class="fas fa-medal medal-icon" style="color: #C0C0C0;"></i>';
+                                cardStyle = 'border-4 border-gray-400';
+                            } else if (idx === 2) {
+                                rankClass = 'rank-3';
+                                medalIcon = '<i class="fas fa-medal medal-icon" style="color: #CD7F32;"></i>';
+                                cardStyle = 'border-4 border-orange-600';
+                            }
                             
                             return \`
-                                <div class="border border-blue-300 rounded-lg p-3 \${bgColor}">
+                                <div class="ranking-card \${rankClass} rounded-2xl p-6 \${cardStyle}" style="animation-delay: \${idx * 0.1}s">
                                     <div class="flex items-center justify-between">
-                                        <div class="flex items-center space-x-2">
-                                            <span class="text-xl">\${medal}</span>
-                                            <div>
-                                                <p class="font-semibold text-gray-800 text-sm">\${item.nickname}</p>
-                                                <p class="text-xs text-gray-600">\${item.mbti}</p>
+                                        <div class="flex items-center gap-4">
+                                            <div class="text-center">
+                                                \${medalIcon || '<div class="text-3xl font-bold text-blue-600">' + (idx + 1) + '</div>'}
+                                            </div>
+                                            <div class="flex-1">
+                                                <p class="text-xl font-bold \${idx < 3 ? 'text-white' : 'text-gray-800'}">\${item.nickname}</p>
+                                                <p class="text-sm \${idx < 3 ? 'text-white opacity-90' : 'text-gray-600'}">\${item.mbti}</p>
                                             </div>
                                         </div>
-                                        <div class="text-2xl font-bold text-blue-600">\${item.vote_count}</div>
+                                        <div class="vote-badge \${idx === 0 ? 'bg-white text-yellow-600' : idx === 1 ? 'bg-white text-gray-600' : idx === 2 ? 'bg-white text-orange-600' : 'bg-blue-100 text-blue-600'}">
+                                            <i class="fas fa-heart mr-2"></i>\${item.vote_count}
+                                        </div>
                                     </div>
                                 </div>
                             \`;
@@ -1654,21 +1755,39 @@ app.get('/vote', (c) => {
                         femaleListDiv.innerHTML = '<p class="text-gray-500 text-center py-4">랭킹 정보가 없습니다.</p>';
                     } else {
                         femaleListDiv.innerHTML = femaleRanking.map((item, idx) => {
-                            const medals = ['🥇', '🥈', '🥉'];
-                            const medal = idx < 3 ? medals[idx] : \`\${idx + 1}위\`;
-                            const bgColor = idx < 3 ? 'bg-gradient-to-r from-pink-100 to-rose-100' : 'bg-gray-50';
+                            let rankClass = '';
+                            let medalIcon = '';
+                            let cardStyle = '';
+                            
+                            if (idx === 0) {
+                                rankClass = 'rank-1';
+                                medalIcon = '<i class="fas fa-crown medal-icon" style="color: #FFD700;"></i>';
+                                cardStyle = 'border-4 border-yellow-400';
+                            } else if (idx === 1) {
+                                rankClass = 'rank-2';
+                                medalIcon = '<i class="fas fa-medal medal-icon" style="color: #C0C0C0;"></i>';
+                                cardStyle = 'border-4 border-gray-400';
+                            } else if (idx === 2) {
+                                rankClass = 'rank-3';
+                                medalIcon = '<i class="fas fa-medal medal-icon" style="color: #CD7F32;"></i>';
+                                cardStyle = 'border-4 border-orange-600';
+                            }
                             
                             return \`
-                                <div class="border border-pink-300 rounded-lg p-3 \${bgColor}">
+                                <div class="ranking-card \${rankClass} rounded-2xl p-6 \${cardStyle}" style="animation-delay: \${idx * 0.1}s">
                                     <div class="flex items-center justify-between">
-                                        <div class="flex items-center space-x-2">
-                                            <span class="text-xl">\${medal}</span>
-                                            <div>
-                                                <p class="font-semibold text-gray-800 text-sm">\${item.nickname}</p>
-                                                <p class="text-xs text-gray-600">\${item.mbti}</p>
+                                        <div class="flex items-center gap-4">
+                                            <div class="text-center">
+                                                \${medalIcon || '<div class="text-3xl font-bold text-pink-600">' + (idx + 1) + '</div>'}
+                                            </div>
+                                            <div class="flex-1">
+                                                <p class="text-xl font-bold \${idx < 3 ? 'text-white' : 'text-gray-800'}">\${item.nickname}</p>
+                                                <p class="text-sm \${idx < 3 ? 'text-white opacity-90' : 'text-gray-600'}">\${item.mbti}</p>
                                             </div>
                                         </div>
-                                        <div class="text-2xl font-bold text-pink-600">\${item.vote_count}</div>
+                                        <div class="vote-badge \${idx === 0 ? 'bg-white text-yellow-600' : idx === 1 ? 'bg-white text-gray-600' : idx === 2 ? 'bg-white text-orange-600' : 'bg-pink-100 text-pink-600'}">
+                                            <i class="fas fa-heart mr-2"></i>\${item.vote_count}
+                                        </div>
                                     </div>
                                 </div>
                             \`;
@@ -1695,6 +1814,145 @@ app.get('/', (c) => {
         <title>YEONBAM SEASON 2 AI</title>
         <script src="https://cdn.tailwindcss.com"></script>
         <link href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.4.0/css/all.min.css" rel="stylesheet">
+        <style>
+            @keyframes fadeInUp {
+                from {
+                    opacity: 0;
+                    transform: translateY(20px);
+                }
+                to {
+                    opacity: 1;
+                    transform: translateY(0);
+                }
+            }
+            
+            @keyframes slideIn {
+                from {
+                    opacity: 0;
+                    transform: translateX(-20px);
+                }
+                to {
+                    opacity: 1;
+                    transform: translateX(0);
+                }
+            }
+            
+            @keyframes pulse {
+                0%, 100% {
+                    transform: scale(1);
+                }
+                50% {
+                    transform: scale(1.05);
+                }
+            }
+            
+            .step {
+                animation: fadeInUp 0.5s ease-out;
+            }
+            
+            .progress-bar {
+                transition: width 0.3s ease-in-out;
+            }
+            
+            .mbti-card {
+                transition: all 0.3s ease;
+                cursor: pointer;
+            }
+            
+            .mbti-card:hover {
+                transform: translateY(-5px);
+                box-shadow: 0 10px 25px rgba(0,0,0,0.1);
+            }
+            
+            .mbti-card.selected {
+                border-color: #4F46E5;
+                background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+                color: white;
+            }
+            
+            .gender-btn.selected {
+                border-width: 3px;
+                transform: scale(1.05);
+            }
+            
+            .gender-btn.selected.male {
+                border-color: #3B82F6;
+                background: linear-gradient(135deg, #60a5fa 0%, #3b82f6 100%);
+                color: white;
+            }
+            
+            .gender-btn.selected.female {
+                border-color: #EC4899;
+                background: linear-gradient(135deg, #f9a8d4 0%, #ec4899 100%);
+                color: white;
+            }
+            
+            .toast {
+                position: fixed;
+                top: 20px;
+                right: 20px;
+                padding: 16px 24px;
+                border-radius: 8px;
+                box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+                z-index: 9999;
+                animation: slideIn 0.3s ease-out;
+                max-width: 400px;
+            }
+            
+            .toast.success {
+                background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+                color: white;
+            }
+            
+            .toast.error {
+                background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
+                color: white;
+            }
+            
+            .toast.info {
+                background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
+                color: white;
+            }
+            
+            .team-badge {
+                display: inline-flex;
+                align-items: center;
+                justify-content: center;
+                width: 48px;
+                height: 48px;
+                border-radius: 50%;
+                font-weight: bold;
+                font-size: 18px;
+                color: white;
+                box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+            }
+            
+            .ranking-card {
+                transition: all 0.3s ease;
+                position: relative;
+                overflow: hidden;
+            }
+            
+            .ranking-card::before {
+                content: '';
+                position: absolute;
+                top: 0;
+                left: -100%;
+                width: 100%;
+                height: 100%;
+                background: linear-gradient(90deg, transparent, rgba(255,255,255,0.3), transparent);
+                transition: left 0.5s ease;
+            }
+            
+            .ranking-card:hover::before {
+                left: 100%;
+            }
+            
+            .ranking-card:hover {
+                transform: translateY(-5px);
+                box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+            }
+        </style>
     </head>
     <body class="bg-gradient-to-br from-blue-50 to-indigo-100 min-h-screen">
         <!-- 상단 네비게이션 -->
@@ -1727,6 +1985,17 @@ app.get('/', (c) => {
                 <div class="text-center mb-8">
                     <i class="fas fa-users text-indigo-600 text-6xl mb-4"></i>
                     <h1 class="text-3xl font-bold text-gray-800 mb-2">YEONBAM SEASON 2 AI</h1>
+                </div>
+
+                <!-- 프로그레스 바 -->
+                <div id="progressContainer" class="mb-8 hidden">
+                    <div class="flex justify-between mb-2">
+                        <span class="text-sm font-semibold text-gray-700">단계 <span id="currentStep">1</span> / 4</span>
+                        <span class="text-sm font-semibold text-indigo-600" id="stepLabel">입장 유형 선택</span>
+                    </div>
+                    <div class="w-full bg-gray-200 rounded-full h-2.5">
+                        <div id="progressBar" class="progress-bar bg-gradient-to-r from-indigo-500 to-purple-600 h-2.5 rounded-full" style="width: 0%"></div>
+                    </div>
                 </div>
 
                 <!-- 신규/재입장 선택 -->
@@ -1961,9 +2230,41 @@ app.get('/', (c) => {
             let selectedGender = null;
             let verifiedCode = null;
             let questions = [];
+            
+            // 토스트 알림 시스템
+            function showToast(message, type = 'info') {
+                const toast = document.createElement('div');
+                toast.className = 'toast ' + type;
+                const iconClass = type === 'success' ? 'check-circle' : type === 'error' ? 'exclamation-circle' : 'info-circle';
+                toast.innerHTML = '<div class="flex items-center">' +
+                    '<i class="fas fa-' + iconClass + ' mr-3 text-xl"></i>' +
+                    '<span class="font-semibold">' + message + '</span>' +
+                    '</div>';
+                document.body.appendChild(toast);
+                
+                setTimeout(() => {
+                    toast.style.opacity = '0';
+                    toast.style.transform = 'translateX(100px)';
+                    toast.style.transition = 'all 0.3s ease-out';
+                    setTimeout(() => toast.remove(), 300);
+                }, 3000);
+            }
+            
+            // 프로그레스 바 업데이트
+            function updateProgress(step, totalSteps, label) {
+                const percentage = (step / totalSteps) * 100;
+                document.getElementById('progressBar').style.width = percentage + '%';
+                document.getElementById('currentStep').textContent = step;
+                document.getElementById('stepLabel').textContent = label;
+                
+                if (step > 0) {
+                    document.getElementById('progressContainer').classList.remove('hidden');
+                }
+            }
 
             function selectEntryType(type) {
                 entryType = type;
+                updateProgress(1, 4, type === 'new' ? '신규 입장 - 코드 입력' : '재입장 - 정보 입력');
                 if (type === 'new') {
                     showStep('1-new');
                 } else {
@@ -1978,7 +2279,7 @@ app.get('/', (c) => {
             async function verifyCodeNew() {
                 const code = document.getElementById('accessCodeNew').value.trim();
                 if (!code) {
-                    alert('입장 코드를 입력해주세요.');
+                    showToast('입장 코드를 입력해주세요.', 'error');
                     return;
                 }
 
@@ -1986,10 +2287,12 @@ app.get('/', (c) => {
                     const response = await axios.post('/api/verify-code', { code });
                     if (response.data.success) {
                         verifiedCode = code;
+                        updateProgress(2, 4, '정보 입력');
+                        showToast('입장 코드가 확인되었습니다!', 'success');
                         showStep(2);
                     }
                 } catch (error) {
-                    alert(error.response?.data?.message || '코드 검증 실패');
+                    showToast(error.response?.data?.message || '코드 검증 실패', 'error');
                 }
             }
 
@@ -1998,7 +2301,7 @@ app.get('/', (c) => {
                 const nickname = document.getElementById('nicknameReentry').value.trim();
                 
                 if (!code || !nickname) {
-                    alert('입장 코드와 닉네임을 모두 입력해주세요.');
+                    showToast('입장 코드와 닉네임을 모두 입력해주세요.', 'error');
                     return;
                 }
 
@@ -2040,9 +2343,10 @@ app.get('/', (c) => {
             function selectGender(gender) {
                 selectedGender = gender;
                 document.querySelectorAll('.gender-btn').forEach(btn => {
-                    btn.classList.remove('border-indigo-500', 'bg-indigo-50');
+                    btn.classList.remove('selected', 'male', 'female');
                 });
-                event.target.closest('.gender-btn').classList.add('border-indigo-500', 'bg-indigo-50');
+                const selectedBtn = event.target.closest('.gender-btn');
+                selectedBtn.classList.add('selected', gender);
             }
 
             async function submitRegistration() {
@@ -2051,23 +2355,23 @@ app.get('/', (c) => {
                 const teamNumber = document.getElementById('teamNumber').value;
                 
                 if (!nickname) {
-                    alert('닉네임을 입력해주세요.');
+                    showToast('닉네임을 입력해주세요.', 'error');
                     return;
                 }
 
                 if (!selectedGender) {
-                    alert('성별을 선택해주세요.');
+                    showToast('성별을 선택해주세요.', 'error');
                     return;
                 }
 
                 if (!mbti) {
-                    alert('MBTI를 입력해주세요.');
+                    showToast('MBTI를 입력해주세요.', 'error');
                     return;
                 }
 
                 // MBTI 유효성 검사 (4자리 영문)
                 if (mbti.length !== 4 || !/^[A-Z]{4}$/.test(mbti)) {
-                    alert('올바른 MBTI 형식을 입력해주세요. (예: ENFP, ISTJ)');
+                    showToast('올바른 MBTI 형식을 입력해주세요. (예: ENFP, ISTJ)', 'error');
                     return;
                 }
 
@@ -2111,10 +2415,12 @@ app.get('/', (c) => {
                             \`;
                         }
                         
+                        updateProgress(4, 4, '등록 완료');
+                        showToast('등록이 완료되었습니다!', 'success');
                         showStep('4-new');
                     }
                 } catch (error) {
-                    alert(error.response?.data?.message || '등록 실패');
+                    showToast(error.response?.data?.message || '등록 실패', 'error');
                 }
             }
 
@@ -2209,6 +2515,69 @@ app.get('/teams', async (c) => {
         <title>전체 팀 현황</title>
         <script src="https://cdn.tailwindcss.com"></script>
         <link href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.4.0/css/all.min.css" rel="stylesheet">
+        <style>
+            @keyframes fadeInUp {
+                from {
+                    opacity: 0;
+                    transform: translateY(20px);
+                }
+                to {
+                    opacity: 1;
+                    transform: translateY(0);
+                }
+            }
+            
+            .team-card {
+                animation: fadeInUp 0.5s ease-out;
+                transition: all 0.3s ease;
+                position: relative;
+                overflow: hidden;
+            }
+            
+            .team-card:hover {
+                transform: translateY(-10px);
+                box-shadow: 0 20px 40px rgba(0,0,0,0.15);
+            }
+            
+            .team-badge {
+                display: inline-flex;
+                align-items: center;
+                justify-content: center;
+                width: 56px;
+                height: 56px;
+                border-radius: 50%;
+                font-weight: bold;
+                font-size: 24px;
+                color: white;
+                box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+            }
+            
+            .team-1 { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); }
+            .team-2 { background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%); }
+            .team-3 { background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%); }
+            .team-4 { background: linear-gradient(135deg, #43e97b 0%, #38f9d7 100%); }
+            .team-5 { background: linear-gradient(135deg, #fa709a 0%, #fee140 100%); }
+            .team-6 { background: linear-gradient(135deg, #30cfd0 0%, #330867 100%); }
+            
+            .member-badge {
+                display: inline-block;
+                padding: 4px 12px;
+                border-radius: 20px;
+                font-size: 12px;
+                font-weight: 600;
+                margin: 2px;
+            }
+            
+            .badge-male {
+                background: linear-gradient(135deg, #60a5fa 0%, #3b82f6 100%);
+                color: white;
+            }
+            
+            .badge-female {
+                background: linear-gradient(135deg, #f9a8d4 0%, #ec4899 100%);
+                color: white;
+            }
+        </style>
     </head>
     <body class="bg-gradient-to-br from-blue-50 to-indigo-100 min-h-screen">
         <!-- 상단 네비게이션 -->
@@ -2263,6 +2632,24 @@ app.get('/teams', async (c) => {
             </div>
         </div>
 
+        <!-- 팀 멤버 모달 -->
+        <div id="teamMemberModal" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+            <div class="bg-white rounded-2xl shadow-2xl max-w-md w-full mx-4 max-h-[80vh] overflow-hidden flex flex-col">
+                <div id="modalHeader" class="p-6 text-white relative">
+                    <h2 class="text-2xl font-bold flex items-center gap-3">
+                        <div id="modalBadge" class="team-badge"></div>
+                        <span id="modalTeamTitle"></span>
+                    </h2>
+                    <button onclick="closeTeamModal()" class="absolute top-4 right-4 text-white hover:text-gray-200">
+                        <i class="fas fa-times text-2xl"></i>
+                    </button>
+                </div>
+                <div class="p-6 overflow-y-auto flex-1">
+                    <div id="membersList" class="space-y-2"></div>
+                </div>
+            </div>
+        </div>
+
         <script src="https://cdn.jsdelivr.net/npm/axios@1.6.0/dist/axios.min.js"></script>
         <script>
             async function loadTeams() {
@@ -2271,27 +2658,36 @@ app.get('/teams', async (c) => {
                     const teams = response.data.teams;
                     
                     const container = document.getElementById('teamsContainer');
-                    container.innerHTML = teams.map(team => \`
-                        <div class="bg-white rounded-xl shadow-lg p-6 hover:shadow-xl transition duration-200">
-                            <div class="flex items-center justify-between mb-4">
-                                <h2 class="text-2xl font-bold text-indigo-600">Team \${team.team_number}</h2>
-                                <span class="bg-indigo-100 text-indigo-800 px-3 py-1 rounded-full font-semibold">
-                                    \${team.total_count}명
-                                </span>
-                            </div>
-                            <div class="flex justify-between text-sm text-gray-600">
-                                <div class="flex items-center">
-                                    <i class="fas fa-mars text-blue-500 mr-1"></i>
-                                    남성: <span class="font-semibold ml-1">\${team.male_count}명</span>
-                                </div>
-                                <div class="flex items-center">
-                                    <i class="fas fa-venus text-pink-500 mr-1"></i>
-                                    여성: <span class="font-semibold ml-1">\${team.female_count}명</span>
+                    container.innerHTML = teams.map((team, index) => \`
+                        <div class="team-card bg-white rounded-2xl shadow-lg p-6" style="animation-delay: \${index * 0.1}s">
+                            <div class="flex items-center justify-between mb-6">
+                                <div class="flex items-center gap-4">
+                                    <div class="team-badge team-\${team.team_number}">
+                                        \${team.team_number}
+                                    </div>
+                                    <div>
+                                        <h2 class="text-2xl font-bold text-gray-800">Team \${team.team_number}</h2>
+                                        <p class="text-sm text-gray-500">총 \${team.total_count}명</p>
+                                    </div>
                                 </div>
                             </div>
+                            
+                            <div class="grid grid-cols-2 gap-4 mb-4">
+                                <div class="bg-blue-50 rounded-lg p-3 text-center">
+                                    <i class="fas fa-mars text-blue-500 text-2xl mb-1"></i>
+                                    <p class="text-sm text-gray-600">남성</p>
+                                    <p class="text-xl font-bold text-blue-600">\${team.male_count}명</p>
+                                </div>
+                                <div class="bg-pink-50 rounded-lg p-3 text-center">
+                                    <i class="fas fa-venus text-pink-500 text-2xl mb-1"></i>
+                                    <p class="text-sm text-gray-600">여성</p>
+                                    <p class="text-xl font-bold text-pink-600">\${team.female_count}명</p>
+                                </div>
+                            </div>
+                            
                             <button onclick="viewTeamMembers(\${team.team_number})" 
-                                    class="w-full mt-4 bg-indigo-50 text-indigo-600 py-2 rounded-lg font-semibold hover:bg-indigo-100 transition duration-200">
-                                <i class="fas fa-list mr-2"></i>멤버 보기
+                                    class="w-full bg-gradient-to-r from-indigo-500 to-purple-600 text-white py-3 rounded-lg font-semibold hover:from-indigo-600 hover:to-purple-700 transition duration-200 shadow-md">
+                                <i class="fas fa-users mr-2"></i>멤버 보기
                             </button>
                         </div>
                     \`).join('');
@@ -2305,21 +2701,49 @@ app.get('/teams', async (c) => {
                     const response = await axios.get(\`/api/team/\${teamNumber}\`);
                     const members = response.data.members;
                     
+                    // 모달 헤더 스타일 설정
+                    const headerColors = [
+                        'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+                        'linear-gradient(135deg, #f093fb 0%, #f5576c 100%)',
+                        'linear-gradient(135deg, #4facfe 0%, #00f2fe 100%)',
+                        'linear-gradient(135deg, #43e97b 0%, #38f9d7 100%)',
+                        'linear-gradient(135deg, #fa709a 0%, #fee140 100%)',
+                        'linear-gradient(135deg, #30cfd0 0%, #330867 100%)'
+                    ];
+                    
+                    document.getElementById('modalHeader').style.background = headerColors[teamNumber - 1];
+                    document.getElementById('modalBadge').className = 'team-badge team-' + teamNumber;
+                    document.getElementById('modalBadge').textContent = teamNumber;
+                    document.getElementById('modalTeamTitle').textContent = 'Team ' + teamNumber;
+                    
                     const membersList = members.length > 0 
                         ? members.map(m => \`
-                            <div class="flex items-center justify-between py-2 border-b">
-                                <span class="font-semibold">\${m.nickname}</span>
-                                <span class="text-sm">
-                                    <i class="fas fa-\${m.gender === 'male' ? 'mars text-blue-500' : 'venus text-pink-500'}"></i>
+                            <div class="bg-gray-50 rounded-lg p-4 flex items-center justify-between hover:bg-gray-100 transition">
+                                <div class="flex items-center gap-3">
+                                    <div class="w-10 h-10 rounded-full \${m.gender === 'male' ? 'bg-blue-100' : 'bg-pink-100'} flex items-center justify-center">
+                                        <i class="fas fa-\${m.gender === 'male' ? 'mars text-blue-500' : 'venus text-pink-500'} text-lg"></i>
+                                    </div>
+                                    <div>
+                                        <p class="font-semibold text-gray-800">\${m.nickname}</p>
+                                        <p class="text-xs text-gray-500">\${m.mbti || 'MBTI 미입력'}</p>
+                                    </div>
+                                </div>
+                                <span class="member-badge badge-\${m.gender}">
+                                    \${m.gender === 'male' ? '남성' : '여성'}
                                 </span>
                             </div>
                         \`).join('')
-                        : '<p class="text-gray-500 text-center py-4">아직 멤버가 없습니다.</p>';
+                        : '<p class="text-gray-500 text-center py-8"><i class="fas fa-users text-4xl mb-2 block"></i>아직 멤버가 없습니다.</p>';
                     
-                    alert(\`Team \${teamNumber} 멤버 목록\\n\\n\` + members.map(m => m.nickname).join(', '));
+                    document.getElementById('membersList').innerHTML = membersList;
+                    document.getElementById('teamMemberModal').classList.remove('hidden');
                 } catch (error) {
                     alert('멤버 정보를 불러오는데 실패했습니다.');
                 }
+            }
+            
+            function closeTeamModal() {
+                document.getElementById('teamMemberModal').classList.add('hidden');
             }
 
             loadTeams();
