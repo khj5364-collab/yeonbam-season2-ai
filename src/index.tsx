@@ -3679,7 +3679,6 @@ app.get('/admin', (c) => {
         <title>관리자 페이지</title>
         <script src="https://cdn.tailwindcss.com"></script>
         <link href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.4.0/css/all.min.css" rel="stylesheet">
-        <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
         <style>
             @keyframes fadeInUp {
                 from { opacity: 0; transform: translateY(20px); }
@@ -3866,25 +3865,6 @@ app.get('/admin', (c) => {
                         <div class="mt-4 text-xs text-gray-500">
                             <i class="fas fa-toggle-on mr-1"></i>사용 가능한 코드
                         </div>
-                    </div>
-                </div>
-                
-                <!-- 차트 섹션 -->
-                <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
-                    <!-- 성별 분포 차트 -->
-                    <div class="bg-white rounded-xl shadow-lg p-6">
-                        <h3 class="text-xl font-bold text-gray-800 mb-4">
-                            <i class="fas fa-chart-pie mr-2"></i>성별 분포
-                        </h3>
-                        <canvas id="genderChart"></canvas>
-                    </div>
-                    
-                    <!-- MBTI 분포 차트 -->
-                    <div class="bg-white rounded-xl shadow-lg p-6">
-                        <h3 class="text-xl font-bold text-gray-800 mb-4">
-                            <i class="fas fa-chart-bar mr-2"></i>MBTI 분포 (상위 8개)
-                        </h3>
-                        <canvas id="mbtiChart"></canvas>
                     </div>
                 </div>
 
@@ -4182,7 +4162,6 @@ app.get('/admin', (c) => {
                 loadStats();
                 loadCodes();
                 loadDashboardStats();
-                loadCharts();
                 setInterval(() => {
                     loadStats();
                     loadCodes();
@@ -4304,95 +4283,6 @@ app.get('/admin', (c) => {
                 }
             }
             
-            // 차트 로드
-            let genderChart = null;
-            let mbtiChart = null;
-            
-            async function loadCharts() {
-                try {
-                    // 성별 분포 차트
-                    const statsResponse = await axios.get('/api/admin/stats');
-                    const stats = statsResponse.data.stats;
-                    
-                    // 성별 파이 차트
-                    const genderCtx = document.getElementById('genderChart').getContext('2d');
-                    if (genderChart) genderChart.destroy();
-                    genderChart = new Chart(genderCtx, {
-                        type: 'doughnut',
-                        data: {
-                            labels: ['남성', '여성'],
-                            datasets: [{
-                                data: [stats.male, stats.female],
-                                backgroundColor: [
-                                    'rgba(59, 130, 246, 0.8)',  // blue
-                                    'rgba(236, 72, 153, 0.8)'   // pink
-                                ],
-                                borderColor: [
-                                    'rgba(59, 130, 246, 1)',
-                                    'rgba(236, 72, 153, 1)'
-                                ],
-                                borderWidth: 2
-                            }]
-                        },
-                        options: {
-                            responsive: true,
-                            maintainAspectRatio: true,
-                            plugins: {
-                                legend: {
-                                    position: 'bottom',
-                                    labels: {
-                                        font: { size: 14 },
-                                        padding: 20
-                                    }
-                                }
-                            }
-                        }
-                    });
-                    
-                    // MBTI 분포 차트
-                    const mbtiResponse = await axios.get('/api/admin/mbti-stats');
-                    const mbtiData = mbtiResponse.data.mbti || [];
-                    
-                    // 상위 8개 MBTI만 표시
-                    const topMbti = mbtiData.slice(0, 8);
-                    
-                    const mbtiCtx = document.getElementById('mbtiChart').getContext('2d');
-                    if (mbtiChart) mbtiChart.destroy();
-                    mbtiChart = new Chart(mbtiCtx, {
-                        type: 'bar',
-                        data: {
-                            labels: topMbti.map(m => m.mbti || '미정'),
-                            datasets: [{
-                                label: '인원수',
-                                data: topMbti.map(m => m.count),
-                                backgroundColor: 'rgba(99, 102, 241, 0.8)',
-                                borderColor: 'rgba(99, 102, 241, 1)',
-                                borderWidth: 2
-                            }]
-                        },
-                        options: {
-                            responsive: true,
-                            maintainAspectRatio: true,
-                            scales: {
-                                y: {
-                                    beginAtZero: true,
-                                    ticks: {
-                                        stepSize: 1
-                                    }
-                                }
-                            },
-                            plugins: {
-                                legend: {
-                                    display: false
-                                }
-                            }
-                        }
-                    });
-                } catch (error) {
-                    console.error('차트 로드 실패:', error);
-                }
-            }
-
             async function loadCodes() {
                 try {
                     const response = await axios.get('/api/admin/codes');
