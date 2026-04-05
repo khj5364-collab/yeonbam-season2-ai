@@ -17,6 +17,7 @@
     "test": "curl http://localhost:3000"
   },
   "dependencies": {
+    "axios": "^1.14.0",
     "hono": "^4.10.4"
   },
   "devDependencies": {

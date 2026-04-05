@@ -100,10 +100,15 @@ app.post('/api/register', async (c) => {
       return c.json({ success: false, message: 'MBTI 형식이 올바르지 않습니다.' }, 400)
     }
 
-    // 팀 번호 유효성 검사 (선택사항)
+    // 팀 번호 유효성 검사 (선택사항) - 동적으로 팀 개수 확인
     if (teamNumber !== null && teamNumber !== undefined) {
-      if (![1, 2, 3, 4, 5, 6].includes(teamNumber)) {
-        return c.json({ success: false, message: '팀 번호는 1~6 사이여야 합니다.' }, 400)
+      const settings = await c.env.DB.prepare(`
+        SELECT max_team_count FROM team_settings WHERE id = 1
+      `).first()
+      const maxTeamCount = settings?.max_team_count || 6
+      
+      if (teamNumber < 1 || teamNumber > maxTeamCount) {
+        return c.json({ success: false, message: `팀 번호는 1~${maxTeamCount} 사이여야 합니다.` }, 400)
       }
     }
 
@@ -408,12 +413,13 @@ app.post('/api/admin/delete-code', async (c) => {
 app.get('/api/admin/team-settings', async (c) => {
   try {
     const settings = await c.env.DB.prepare(`
-      SELECT max_team_size FROM team_settings WHERE id = 1
+      SELECT max_team_size, max_team_count FROM team_settings WHERE id = 1
     `).first()
 
     return c.json({ 
       success: true, 
-      maxTeamSize: settings?.max_team_size || 8 
+      maxTeamSize: settings?.max_team_size || 6,
+      maxTeamCount: settings?.max_team_count || 6
     })
   } catch (error) {
     console.error('Error fetching team settings:', error)
@@ -424,7 +430,7 @@ app.get('/api/admin/team-settings', async (c) => {
 // 8-1. 관리자 - 팀 설정 업데이트 API
 app.post('/api/admin/team-settings', async (c) => {
   try {
-    const { maxTeamSize, adminPassword } = await c.req.json()
+    const { maxTeamSize, maxTeamCount, adminPassword } = await c.req.json()
     
     if (adminPassword !== 'qwer1234') {
       return c.json({ success: false, message: '관리자 권한이 없습니다.' }, 403)
@@ -434,16 +440,21 @@ app.post('/api/admin/team-settings', async (c) => {
       return c.json({ success: false, message: '팀당 인원은 5명 또는 6명 중 선택해주세요.' }, 400)
     }
 
+    if (maxTeamCount < 2 || maxTeamCount > 20) {
+      return c.json({ success: false, message: '팀 개수는 2~20개 사이로 설정해주세요.' }, 400)
+    }
+
     await c.env.DB.prepare(`
       UPDATE team_settings 
-      SET max_team_size = ?, updated_at = CURRENT_TIMESTAMP
+      SET max_team_size = ?, max_team_count = ?, updated_at = CURRENT_TIMESTAMP
       WHERE id = 1
-    `).bind(maxTeamSize).run()
+    `).bind(maxTeamSize, maxTeamCount).run()
 
     return c.json({ 
       success: true, 
-      message: `팀당 최대 인원이 ${maxTeamSize}명으로 설정되었습니다.`,
-      maxTeamSize 
+      message: `팀 설정이 업데이트되었습니다. (${maxTeamCount}개 팀, 팀당 최대 ${maxTeamSize}명)`,
+      maxTeamSize,
+      maxTeamCount
     })
   } catch (error) {
     console.error('Error updating team settings:', error)
@@ -2752,8 +2763,8 @@ app.get('/', (c) => {
                 }
             }
             
-            // 페이지 로드 시 다크 모드 상태 복원
-            window.addEventListener('DOMContentLoaded', () => {
+            // 페이지 로드 시 다크 모드 상태 복원 및 팀 개수 로드
+            window.addEventListener('DOMContentLoaded', async () => {
                 const darkMode = localStorage.getItem('darkMode');
                 const icon = document.getElementById('darkModeIcon');
                 
@@ -2764,7 +2775,43 @@ app.get('/', (c) => {
                         icon.classList.add('fa-sun');
                     }
                 }
+                
+                // 관리자가 설정한 팀 개수 불러오기
+                await loadTeamCount();
             });
+            
+            // 팀 개수 동적 로드 함수
+            async function loadTeamCount() {
+                try {
+                    const response = await axios.get('/api/admin/team-settings');
+                    if (response.data.success) {
+                        const maxTeamCount = response.data.maxTeamCount || 6;
+                        updateTeamOptions(maxTeamCount);
+                    }
+                } catch (error) {
+                    console.log('팀 설정을 불러올 수 없습니다. 기본값 6개 팀을 사용합니다.');
+                    updateTeamOptions(6);
+                }
+            }
+            
+            // 팀 옵션 업데이트 함수
+            function updateTeamOptions(maxCount) {
+                const teamSelect = document.getElementById('teamNumber');
+                if (!teamSelect) return;
+                
+                // 기존 옵션 제거 (첫 번째 "팀을 선택하세요" 제외)
+                while (teamSelect.options.length > 1) {
+                    teamSelect.remove(1);
+                }
+                
+                // 새로운 팀 옵션 추가
+                for (let i = 1; i <= maxCount; i++) {
+                    const option = document.createElement('option');
+                    option.value = i.toString();
+                    option.textContent = 'Team ' + i;
+                    teamSelect.appendChild(option);
+                }
+            }
             
             // 토스트 알림 시스템
             function showToast(message, type = 'info') {
@@ -3923,10 +3970,25 @@ app.get('/admin', (c) => {
                     <div class="bg-blue-50 border-l-4 border-blue-500 p-4 mb-4">
                         <p class="text-sm text-blue-800">
                             <i class="fas fa-info-circle mr-2"></i>
-                            팀당 최대 인원을 설정합니다. 기본 설정은 6명(남3, 여3)입니다.
+                            팀 개수와 팀당 최대 인원을 설정합니다. 참가자가 선택할 수 있는 팀 번호도 자동으로 업데이트됩니다.
                         </p>
                     </div>
-                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+                        <div>
+                            <label class="block text-gray-700 font-semibold mb-2">
+                                <i class="fas fa-layer-group mr-2"></i>팀 개수
+                            </label>
+                            <select id="maxTeamCountSelect" 
+                                   class="w-full px-4 py-3 border-2 border-gray-300 rounded-lg focus:border-indigo-500 focus:outline-none">
+                                <option value="4">4개 팀</option>
+                                <option value="5">5개 팀</option>
+                                <option value="6" selected>6개 팀</option>
+                                <option value="7">7개 팀</option>
+                                <option value="8">8개 팀</option>
+                                <option value="9">9개 팀</option>
+                                <option value="10">10개 팀</option>
+                            </select>
+                        </div>
                         <div>
                             <label class="block text-gray-700 font-semibold mb-2">
                                 <i class="fas fa-users mr-2"></i>팀당 최대 인원
@@ -4133,6 +4195,7 @@ app.get('/admin', (c) => {
                     const response = await axios.get('/api/admin/team-settings');
                     if (response.data.success) {
                         document.getElementById('maxTeamSizeSelect').value = response.data.maxTeamSize;
+                        document.getElementById('maxTeamCountSelect').value = response.data.maxTeamCount || 6;
                     }
                 } catch (error) {
                     console.error('Error loading team settings:', error);
@@ -4141,11 +4204,13 @@ app.get('/admin', (c) => {
 
             async function updateTeamSettings() {
                 const maxTeamSize = parseInt(document.getElementById('maxTeamSizeSelect').value);
+                const maxTeamCount = parseInt(document.getElementById('maxTeamCountSelect').value);
                 const resultDiv = document.getElementById('teamSettingsResult');
 
                 try {
                     const response = await axios.post('/api/admin/team-settings', {
                         maxTeamSize,
+                        maxTeamCount,
                         adminPassword: ADMIN_PASSWORD
                     });
 
