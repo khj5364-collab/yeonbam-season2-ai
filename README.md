@@ -6,6 +6,15 @@
 
 일일 입장 코드 기반 팀 빌딩 시스템
 
+## 🚀 빠른 배포
+
+**5분 안에 웹사이트 만들기!**
+
+👉 **[빠른 배포 가이드 (QUICK_DEPLOY.md)](./QUICK_DEPLOY.md)** - 5분 완성 가이드  
+📖 **[상세 배포 가이드 (DEPLOYMENT_GUIDE.md)](./DEPLOYMENT_GUIDE.md)** - 완벽한 설명서
+
+**배포 후 접속 URL:** `https://your-project.pages.dev`
+
 ## 🎯 주요 기능
 
 ### 사용자 기능
